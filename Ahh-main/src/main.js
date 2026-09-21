@@ -38,27 +38,8 @@ class MainScene extends Phaser.Scene {
   }
 
   preload() {
-    const directionVariants = ['back', 'front', 'side_left', 'side_right'];
-    const spriteSheets = [];
-
-    ['unarmed'].forEach((weapon) => {
-      ['idle', 'walk', 'run'].forEach((action) => {
-        directionVariants.forEach((direction) => {
-          const key = `${weapon}_${action}_${direction}`;
-          spriteSheets.push([key, `/assets/${weapon}_${action}_${direction}.png`]);
-        });
-      });
-    });
-
     this.load.on('loaderror', (file) => {
       console.warn('Asset load error:', file.key || file.src || 'unknown');
-    });
-
-    spriteSheets.forEach(([key, path]) => {
-      this.load.spritesheet(key, path, {
-        frameWidth: FRAME_W,
-        frameHeight: FRAME_H
-      });
     });
 
     this.load.spritesheet('sword_attack_atlas', '/assets/sword_attack_atlas.png', {
@@ -74,6 +55,18 @@ class MainScene extends Phaser.Scene {
       frameHeight: FRAME_H
     });
     this.load.spritesheet('sword_run_atlas', '/assets/sword_run_atlas.png', {
+      frameWidth: FRAME_W,
+      frameHeight: FRAME_H
+    });
+    this.load.spritesheet('unarmed_idle_atlas', '/assets/unarmed_idle_atlas.png', {
+      frameWidth: FRAME_W,
+      frameHeight: FRAME_H
+    });
+    this.load.spritesheet('unarmed_walk_atlas', '/assets/unarmed_walk_atlas.png', {
+      frameWidth: FRAME_W,
+      frameHeight: FRAME_H
+    });
+    this.load.spritesheet('unarmed_run_atlas', '/assets/unarmed_run_atlas.png', {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
@@ -254,33 +247,22 @@ class MainScene extends Phaser.Scene {
   createAnimations() {
     const animationDefs = [];
 
-    ['unarmed'].forEach((weapon) => {
-      ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
-        ['idle', 'walk', 'run'].forEach((action) => {
-          const textureKey = `${weapon}_${action}_${direction}`;
-          const key = `${weapon}_${action}_${direction}`;
-          const frameCount = this.textures.exists(textureKey)
-            ? Math.max(1, Math.floor(this.textures.get(textureKey).getSourceImage().width / FRAME_W))
-            : 1;
-          animationDefs.push([key, textureKey, 0, frameCount - 1, action === 'run' ? 12 : action === 'walk' ? 10 : 8, -1]);
-        });
-      });
-    });
-
-    const swordActionColumns = {
+    const actionColumns = {
       idle: SWORD_IDLE_COLUMNS,
       walk: SWORD_WALK_COLUMNS,
       run: SWORD_RUN_COLUMNS
     };
-    ['idle', 'walk', 'run'].forEach((action) => {
-      const textureKey = `sword_${action}_atlas`;
-      const frameRate = action === 'run' ? 12 : action === 'walk' ? 10 : 8;
-      const columns = swordActionColumns[action];
-      ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
-        const row = ATTACK_ROW_BY_DIRECTION[direction];
-        const key = `sword_${action}_${direction}`;
-        const start = row * columns;
-        animationDefs.push([key, textureKey, start, start + columns - 1, frameRate, -1]);
+    ['sword', 'unarmed'].forEach((weapon) => {
+      ['idle', 'walk', 'run'].forEach((action) => {
+        const textureKey = `${weapon}_${action}_atlas`;
+        const frameRate = action === 'run' ? 12 : action === 'walk' ? 10 : 8;
+        const columns = actionColumns[action];
+        ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
+          const row = ATTACK_ROW_BY_DIRECTION[direction];
+          const key = `${weapon}_${action}_${direction}`;
+          const start = row * columns;
+          animationDefs.push([key, textureKey, start, start + columns - 1, frameRate, -1]);
+        });
       });
     });
 

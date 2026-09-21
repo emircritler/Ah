@@ -20,6 +20,11 @@ const COMPOSITE_SWORD_SOURCES = [
   ['Sword_Walk_without_shadow.png', 'sword_walk_atlas.png'],
   ['Sword_Run_without_shadow.png', 'sword_run_atlas.png']
 ];
+const COMPOSITE_UNARMED_SOURCES = [
+  ['Unarmed_Idle_without_shadow.png', 'unarmed_idle_atlas.png'],
+  ['Unarmed_Walk_without_shadow.png', 'unarmed_walk_atlas.png'],
+  ['Unarmed_Run_without_shadow.png', 'unarmed_run_atlas.png']
+];
 
 const SUPPORTED_EXTENSIONS = new Set(['.psd', '.ase', '.aseprite']);
 
@@ -261,6 +266,12 @@ async function main() {
   for (const [sourceName, outputName] of COMPOSITE_SWORD_SOURCES) {
     await fs.copyFile(
       path.join(ROOT_DIR, 'PNG', 'Sword', 'Without_shadow', sourceName),
+      path.join(OUTPUT_DIR, outputName)
+    );
+  }
+  for (const [sourceName, outputName] of COMPOSITE_UNARMED_SOURCES) {
+    await fs.copyFile(
+      path.join(ROOT_DIR, 'PNG', 'Unarmed', 'Without_shadow', sourceName),
       path.join(OUTPUT_DIR, outputName)
     );
   }
