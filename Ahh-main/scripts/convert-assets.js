@@ -319,6 +319,10 @@ async function main() {
       path.join(OUTPUT_DIR, outputName)
     );
   }
+  await copyIfPresent(
+    path.join(RAW_DIR, 'forest', 'Beach Tileset.png'),
+    path.join(OUTPUT_DIR, 'forest_tileset.png')
+  );
 
   const files = await findAssetFiles();
 

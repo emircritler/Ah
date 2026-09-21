@@ -26,6 +26,9 @@ const STANDARD_HITBOX_W = 32;
 const STANDARD_HITBOX_H = 48;
 const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
+const TILE_SIZE = 16;
+const MAP_TILES_W = WORLD_WIDTH / TILE_SIZE;
+const MAP_TILES_H = WORLD_HEIGHT / TILE_SIZE;
 const PLAYER_SPEED = 150;
 const RUN_SPEED = 240;
 const MAX_PLAYER_HEALTH = 100;
@@ -124,6 +127,7 @@ class MainScene extends Phaser.Scene {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
+    this.load.image('forest_tileset', `${ASSET_BASE}assets/forest_tileset.png`);
 
     Object.entries(ANIMAL_DEFS).forEach(([species, definition]) => {
       Object.entries(definition.atlasFiles).forEach(([action, fileName]) => {
@@ -228,26 +232,110 @@ class MainScene extends Phaser.Scene {
     this.safePlayAnimation(this.player, idleKey, `${weaponSuffix}_idle_front`);
   }
 
+  createWorldMap() {
+    const tile = (id) => id + 1;
+    const ground = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(tile(315)));
+    const beach = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
+    const water = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
+
+    for (let y = 0; y < MAP_TILES_H; y += 1) {
+      for (let x = 0; x < MAP_TILES_W; x += 1) {
+        const variation = (x * 17 + y * 31) % 41;
+        if (variation === 0 || variation === 1) {
+          ground[y][x] = tile(279);
+        } else if (variation === 2) {
+          ground[y][x] = tile(320);
+        }
+      }
+    }
+
+    const paintEllipse = (centerX, centerY, radiusX, radiusY) => {
+      for (let y = Math.max(0, centerY - radiusY - 2); y < Math.min(MAP_TILES_H, centerY + radiusY + 3); y += 1) {
+        for (let x = Math.max(0, centerX - radiusX - 2); x < Math.min(MAP_TILES_W, centerX + radiusX + 3); x += 1) {
+          const distance = ((x - centerX) ** 2) / ((radiusX + 2) ** 2) + ((y - centerY) ** 2) / ((radiusY + 2) ** 2);
+          if (distance <= 1) {
+            beach[y][x] = tile(224);
+          }
+          const innerDistance = ((x - centerX) ** 2) / (radiusX ** 2) + ((y - centerY) ** 2) / (radiusY ** 2);
+          if (innerDistance <= 1) {
+            beach[y][x] = 0;
+            water[y][x] = tile(288);
+          }
+        }
+      }
+    };
+
+    paintEllipse(26, 28, 11, 8);
+    paintEllipse(91, 32, 15, 10);
+    paintEllipse(76, 91, 10, 7);
+
+    for (let y = 0; y < MAP_TILES_H; y += 1) {
+      const riverX = Math.round(108 + Math.sin(y * 0.11) * 9);
+      for (let offset = -2; offset <= 2; offset += 1) {
+        const x = riverX + offset;
+        if (x >= 0 && x < MAP_TILES_W) {
+          water[y][x] = tile(288);
+          beach[y][x] = 0;
+        }
+      }
+    }
+
+    for (let step = 0; step < 86; step += 1) {
+      const x = Math.round(12 + step * 0.82);
+      const y = Math.round(108 - step * 0.58 + Math.sin(step * 0.22) * 3);
+      for (let offset = -1; offset <= 1; offset += 1) {
+        const pathY = y + offset;
+        if (x >= 0 && x < MAP_TILES_W && pathY >= 0 && pathY < MAP_TILES_H && !water[pathY][x]) {
+          ground[pathY][x] = tile(237);
+        }
+      }
+    }
+
+    const props = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
+    const placePalm = (x, y) => {
+      if (x < 0 || x + 1 >= MAP_TILES_W || y < 0 || y + 1 >= MAP_TILES_H) {
+        return;
+      }
+      props[y][x] = tile(10);
+      props[y][x + 1] = tile(11);
+      props[y + 1][x] = tile(46);
+      props[y + 1][x + 1] = tile(47);
+    };
+    [
+      [9, 14], [42, 18], [57, 15], [82, 15], [101, 18], [116, 24],
+      [12, 48], [45, 47], [69, 48], [97, 55], [116, 64],
+      [14, 82], [39, 91], [63, 76], [88, 104], [111, 92]
+    ].forEach(([x, y]) => placePalm(x, y));
+
+    const tilesetKey = 'forest_tileset';
+    this.groundMap = this.make.tilemap({ data: ground, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
+    const groundTileset = this.groundMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    this.groundLayer = this.groundMap.createLayer(0, groundTileset, 0, 0);
+    this.groundLayer.setDepth(0);
+
+    this.beachMap = this.make.tilemap({ data: beach, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
+    const beachTileset = this.beachMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    this.beachLayer = this.beachMap.createLayer(0, beachTileset, 0, 0);
+    this.beachLayer.setDepth(1);
+
+    this.waterMap = this.make.tilemap({ data: water, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
+    const waterTileset = this.waterMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    this.waterLayer = this.waterMap.createLayer(0, waterTileset, 0, 0);
+    this.waterLayer.setDepth(2);
+    this.waterLayer.setCollisionByExclusion([0]);
+
+    this.propsMap = this.make.tilemap({ data: props, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
+    const propsTileset = this.propsMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    this.propsLayer = this.propsMap.createLayer(0, propsTileset, 0, 0);
+    this.propsLayer.setDepth(4);
+  }
+
   create() {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.roundPixels = true;
 
-    const ground = this.add.graphics();
-    ground.fillStyle(0x3a8f5b, 1);
-    ground.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    ground.setDepth(0);
-
-    const grassPatch = this.add.graphics();
-    grassPatch.fillStyle(0x4dbb6a, 0.2);
-
-    for (let i = 0; i < 30; i += 1) {
-      const x = Phaser.Math.Between(0, WORLD_WIDTH - 150);
-      const y = Phaser.Math.Between(0, WORLD_HEIGHT - 150);
-      grassPatch.fillRoundedRect(x, y, 120, 120, 12);
-    }
-
-    grassPatch.setDepth(1);
+    this.createWorldMap();
 
     this.createAnimations();
 
@@ -265,6 +353,8 @@ class MainScene extends Phaser.Scene {
     this.player.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT));
 
     this.createAnimals();
+    this.physics.add.collider(this.player, this.waterLayer);
+    this.animals.forEach((animal) => this.physics.add.collider(animal.sprite, this.waterLayer));
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
@@ -416,9 +506,10 @@ class MainScene extends Phaser.Scene {
     spawnPlan.forEach(([species, count]) => {
       for (let index = 0; index < count; index += 1) {
         const definition = ANIMAL_DEFS[species];
+        const spawnPosition = this.getSafeSpawnPosition();
         const sprite = this.physics.add.sprite(
-          Phaser.Math.Between(180, WORLD_WIDTH - 180),
-          Phaser.Math.Between(180, WORLD_HEIGHT - 180),
+          spawnPosition.x,
+          spawnPosition.y,
           `animal_${species}_idle_atlas`
         );
         const animal = {
@@ -448,6 +539,19 @@ class MainScene extends Phaser.Scene {
         this.chooseAnimalDirection(animal, 0);
       }
     });
+  }
+
+  getSafeSpawnPosition() {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const x = Phaser.Math.Between(180, WORLD_WIDTH - 180);
+      const y = Phaser.Math.Between(180, WORLD_HEIGHT - 180);
+      const tile = this.waterLayer.getTileAtWorldXY(x, y);
+      if (!tile || tile.index <= 0) {
+        return { x, y };
+      }
+    }
+
+    return { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
   }
 
   playAnimalAnimation(animal, action) {
@@ -1060,10 +1164,8 @@ class MainScene extends Phaser.Scene {
         animal.hurtUntil = 0;
         animal.sprite.setVisible(true);
         animal.sprite.body.enable = true;
-        animal.sprite.setPosition(
-          Phaser.Math.Between(180, WORLD_WIDTH - 180),
-          Phaser.Math.Between(180, WORLD_HEIGHT - 180)
-        );
+        const spawnPosition = this.getSafeSpawnPosition();
+        animal.sprite.setPosition(spawnPosition.x, spawnPosition.y);
         this.chooseAnimalDirection(animal, this.time.now);
       });
     }
