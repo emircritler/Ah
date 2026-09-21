@@ -25,6 +25,34 @@ const COMPOSITE_UNARMED_SOURCES = [
   ['Unarmed_Walk_without_shadow.png', 'unarmed_walk_atlas.png'],
   ['Unarmed_Run_without_shadow.png', 'unarmed_run_atlas.png']
 ];
+const ANIMAL_COMPOSITE_SOURCES = [
+  ['Fox', 'Fox_Idle.png', 'animal_fox_idle_atlas.png'],
+  ['Fox', 'Fox_walk.png', 'animal_fox_walk_atlas.png'],
+  ['Fox', 'Fox_Run.png', 'animal_fox_run_atlas.png'],
+  ['Fox', 'Fox_Hurt.png', 'animal_fox_hurt_atlas.png'],
+  ['Fox', 'Fox_Death.png', 'animal_fox_death_atlas.png'],
+  ['Hare', 'Hare_Idle.png', 'animal_hare_idle_atlas.png'],
+  ['Hare', 'Hare_Walk.png', 'animal_hare_walk_atlas.png'],
+  ['Hare', 'Hare_Run.png', 'animal_hare_run_atlas.png'],
+  ['Hare', 'Hare_Hurt.png', 'animal_hare_hurt_atlas.png'],
+  ['Hare', 'Hare_Death.png', 'animal_hare_death_atlas.png'],
+  ['Deer', 'Deer_Idle.png', 'animal_deer_idle_atlas.png'],
+  ['Deer', 'Deer_Walk.png', 'animal_deer_walk_atlas.png'],
+  ['Deer', 'Deer_Run.png', 'animal_deer_run_atlas.png'],
+  ['Deer', 'Deer_Hurt.png', 'animal_deer_hurt_atlas.png'],
+  ['Deer', 'Deer_Death.png', 'animal_deer_death_atlas.png'],
+  ['Black_grouse', 'Black_grouse_Idle.png', 'animal_black_grouse_idle_atlas.png'],
+  ['Black_grouse', 'Black_grouse_Walk.png', 'animal_black_grouse_walk_atlas.png'],
+  ['Black_grouse', 'Black_grouse_Flight.png', 'animal_black_grouse_flight_atlas.png'],
+  ['Black_grouse', 'Black_grouse_Hurt.png', 'animal_black_grouse_hurt_atlas.png'],
+  ['Black_grouse', 'Black_grouse_Death.png', 'animal_black_grouse_death_atlas.png'],
+  ['Boar', 'Boar_Idle.png', 'animal_boar_idle_atlas.png'],
+  ['Boar', 'Boar_Walk.png', 'animal_boar_walk_atlas.png'],
+  ['Boar', 'Boar_Run.png', 'animal_boar_run_atlas.png'],
+  ['Boar', 'Boar_Attack.png', 'animal_boar_attack_atlas.png'],
+  ['Boar', 'Boar_Hurt.png', 'animal_boar_hurt_atlas.png'],
+  ['Boar', 'Boar_Death.png', 'animal_boar_death_atlas.png']
+];
 
 const SUPPORTED_EXTENSIONS = new Set(['.psd', '.ase', '.aseprite']);
 
@@ -38,6 +66,16 @@ function slugifyName(name) {
 
 async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
+}
+
+async function copyIfPresent(sourcePath, outputPath) {
+  try {
+    await fs.copyFile(sourcePath, outputPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
 }
 
 function toImageDataFromPixels(pixels, width, height) {
@@ -272,6 +310,12 @@ async function main() {
   for (const [sourceName, outputName] of COMPOSITE_UNARMED_SOURCES) {
     await fs.copyFile(
       path.join(ROOT_DIR, 'PNG', 'Unarmed', 'Without_shadow', sourceName),
+      path.join(OUTPUT_DIR, outputName)
+    );
+  }
+  for (const [animalName, sourceName, outputName] of ANIMAL_COMPOSITE_SOURCES) {
+    await copyIfPresent(
+      path.join(RAW_DIR, 'animals', 'PNG', 'Without_shadow', animalName, sourceName),
       path.join(OUTPUT_DIR, outputName)
     );
   }

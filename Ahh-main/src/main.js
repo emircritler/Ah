@@ -5,6 +5,8 @@ const ASSET_BASE = import.meta.env.BASE_URL;
 
 const FRAME_W = 64;
 const FRAME_H = 64;
+const ANIMAL_FRAME_W = 32;
+const ANIMAL_FRAME_H = 32;
 const ATTACK_COLUMNS = 8;
 const ATTACK_ROWS = 4;
 const ATTACK_FRAME_W = FRAME_W;
@@ -29,36 +31,41 @@ const RUN_SPEED = 240;
 const ANIMAL_DEFS = {
   fox: {
     actions: { idle: 4, walk: 6, run: 6, hurt: 4, death: 6 },
+    atlasFiles: { idle: 'Fox_Idle.png', walk: 'Fox_walk.png', run: 'Fox_Run.png', hurt: 'Fox_Hurt.png', death: 'Fox_Death.png' },
     scale: 1.35,
     speed: 62
   },
   hare: {
     actions: { idle: 4, walk: 5, run: 6, hurt: 4, death: 6 },
+    atlasFiles: { idle: 'Hare_Idle.png', walk: 'Hare_Walk.png', run: 'Hare_Run.png', hurt: 'Hare_Hurt.png', death: 'Hare_Death.png' },
     scale: 1.15,
     speed: 82
   },
   deer: {
     actions: { idle: 4, walk: 6, run: 6, hurt: 4, death: 7 },
+    atlasFiles: { idle: 'Deer_Idle.png', walk: 'Deer_Walk.png', run: 'Deer_Run.png', hurt: 'Deer_Hurt.png', death: 'Deer_Death.png' },
     scale: 1.45,
     speed: 72
   },
   black_grouse: {
     actions: { idle: 4, walk: 6, run: 0, flight: 6, hurt: 4, death: 6 },
+    atlasFiles: { idle: 'Black_grouse_Idle.png', walk: 'Black_grouse_Walk.png', flight: 'Black_grouse_Flight.png', hurt: 'Black_grouse_Hurt.png', death: 'Black_grouse_Death.png' },
     scale: 1.15,
     speed: 68
   },
   boar: {
     actions: { idle: 4, walk: 6, run: 5, attack: 5, hurt: 4, death: 6 },
+    atlasFiles: { idle: 'Boar_Idle.png', walk: 'Boar_Walk.png', run: 'Boar_Run.png', attack: 'Boar_Attack.png', hurt: 'Boar_Hurt.png', death: 'Boar_Death.png' },
     scale: 1.35,
     speed: 64,
     attackDamage: 8
   }
 };
 const ANIMAL_DIRECTIONS = {
-  back: 'back',
-  front: 'front',
-  side_left: 'left',
-  side_right: 'right'
+  front: 0,
+  back: 1,
+  side_left: 2,
+  side_right: 3
 };
 
 class MainScene extends Phaser.Scene {
@@ -111,30 +118,23 @@ class MainScene extends Phaser.Scene {
     });
 
     Object.entries(ANIMAL_DEFS).forEach(([species, definition]) => {
-      Object.keys(definition.actions).forEach((action) => {
+      Object.entries(definition.atlasFiles).forEach(([action, fileName]) => {
         if (!definition.actions[action]) {
           return;
         }
 
-        Object.entries(ANIMAL_DIRECTIONS).forEach(([direction, fileDirection]) => {
-          const fileName = species === 'boar'
-            ? fileDirection === 'right'
-              ? `boar_${action}_right.png`
-              : `boar_${fileDirection}_${action}.png`
-            : `${species}_${action}_${fileDirection}.png`;
-          this.load.spritesheet(
-            `animal_${species}_${action}_${direction}`,
-            `${ASSET_BASE}assets/${fileName}`,
-            { frameWidth: FRAME_W, frameHeight: FRAME_H }
-          );
-        });
+        this.load.spritesheet(
+          `animal_${species}_${action}_atlas`,
+          `${ASSET_BASE}assets/animal_${species}_${action}_atlas.png`,
+          { frameWidth: ANIMAL_FRAME_W, frameHeight: ANIMAL_FRAME_H }
+        );
       });
     });
 
-    Object.entries(ANIMAL_DIRECTIONS).forEach(([direction, fileDirection]) => {
+    Object.keys(ANIMAL_DIRECTIONS).forEach((direction) => {
       this.load.spritesheet(
         `unarmed_hurt_${direction}`,
-        `${ASSET_BASE}assets/unarmed_hurt_${direction.startsWith('side_') ? direction : fileDirection}.png`,
+        `${ASSET_BASE}assets/unarmed_hurt_${direction}.png`,
         { frameWidth: FRAME_W, frameHeight: FRAME_H }
       );
     });
@@ -361,13 +361,18 @@ class MainScene extends Phaser.Scene {
 
         Object.keys(ANIMAL_DIRECTIONS).forEach((direction) => {
           const key = `animal_${species}_${action}_${direction}`;
-          if (!this.textures.exists(key) || this.anims.exists(key)) {
+          const textureKey = `animal_${species}_${action}_atlas`;
+          const row = ANIMAL_DIRECTIONS[direction];
+          if (!this.textures.exists(textureKey) || this.anims.exists(key)) {
             return;
           }
 
           this.anims.create({
             key,
-            frames: this.anims.generateFrameNumbers(key, { start: 0, end: columns - 1 }),
+            frames: this.anims.generateFrameNumbers(textureKey, {
+              start: row * columns,
+              end: row * columns + columns - 1
+            }),
             frameRate: action === 'run' || action === 'flight' ? 12 : action === 'walk' ? 10 : 8,
             repeat: action === 'hurt' || action === 'death' || action === 'attack' ? 0 : -1
           });
@@ -405,7 +410,7 @@ class MainScene extends Phaser.Scene {
         const sprite = this.physics.add.sprite(
           Phaser.Math.Between(180, WORLD_WIDTH - 180),
           Phaser.Math.Between(180, WORLD_HEIGHT - 180),
-          `animal_${species}_idle_front`
+          `animal_${species}_idle_atlas`
         );
         const animal = {
           species,
@@ -421,7 +426,8 @@ class MainScene extends Phaser.Scene {
           dead: false
         };
 
-        sprite.setScale(definition.scale);
+        const displaySize = STANDARD_DISPLAY_W * (definition.scale / 1.35);
+        sprite.setDisplaySize(displaySize, displaySize);
         sprite.setDepth(5);
         sprite.body.setAllowGravity(false);
         sprite.body.setCollideWorldBounds(true);
