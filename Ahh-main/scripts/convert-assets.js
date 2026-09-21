@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createCanvas, ImageData } from 'canvas';
+import { createCanvas, ImageData, loadImage } from 'canvas';
 import agPsd from 'ag-psd';
 import aseprite from 'aseprite';
 
@@ -71,6 +71,23 @@ async function ensureDir(dirPath) {
 async function copyIfPresent(sourcePath, outputPath) {
   try {
     await fs.copyFile(sourcePath, outputPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+async function createForestPalm() {
+  const sourcePath = path.join(RAW_DIR, 'forest', 'Beach Tileset.png');
+  const outputPath = path.join(OUTPUT_DIR, 'forest_palm.png');
+  try {
+    const source = await loadImage(sourcePath);
+    const palm = createCanvas(32, 64);
+    const context = palm.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    context.drawImage(source, 160, 0, 32, 64, 0, 0, 32, 64);
+    await fs.writeFile(outputPath, palm.toBuffer('image/png'));
   } catch (error) {
     if (error.code !== 'ENOENT') {
       throw error;
@@ -323,6 +340,7 @@ async function main() {
     path.join(RAW_DIR, 'forest', 'Beach Tileset.png'),
     path.join(OUTPUT_DIR, 'forest_tileset.png')
   );
+  await createForestPalm();
   for (const fileName of ['Boats.png', 'Characters.png', 'Chest.png']) {
     await copyIfPresent(
       path.join(RAW_DIR, 'forest', fileName),

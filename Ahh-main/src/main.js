@@ -129,6 +129,7 @@ class MainScene extends Phaser.Scene {
       frameHeight: FRAME_H
     });
     this.load.image('forest_tileset', `${ASSET_BASE}assets/forest_tileset.png`);
+    this.load.image('forest_palm', `${ASSET_BASE}assets/forest_palm.png`);
     this.load.spritesheet('forest_boats', `${ASSET_BASE}assets/forest_boats.png`, {
       frameWidth: 32,
       frameHeight: 32
@@ -305,46 +306,50 @@ class MainScene extends Phaser.Scene {
     }
 
     const props = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
-    const placePalm = (x, y) => {
-      if (x < 0 || x + 1 >= MAP_TILES_W || y < 0 || y + 1 >= MAP_TILES_H) {
-        return;
-      }
-      props[y][x] = tile(10);
-      props[y][x + 1] = tile(11);
-      props[y + 1][x] = tile(46);
-      props[y + 1][x + 1] = tile(47);
-    };
-    [
-      [9, 14], [42, 18], [57, 15], [82, 15], [101, 18], [116, 24],
-      [12, 48], [45, 47], [69, 48], [97, 55], [116, 64],
-      [14, 82], [39, 91], [63, 76], [88, 104], [111, 92]
-    ].forEach(([x, y]) => placePalm(x, y));
 
     const tilesetKey = 'forest_tileset';
+    this.textures.get(tilesetKey).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get('forest_palm').setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.groundMap = this.make.tilemap({ data: ground, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
     const groundTileset = this.groundMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
     this.groundLayer = this.groundMap.createLayer(0, groundTileset, 0, 0);
     this.groundLayer.setDepth(0);
+    this.groundLayer.setSkipCull(true);
 
     this.beachMap = this.make.tilemap({ data: beach, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
     const beachTileset = this.beachMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
     this.beachLayer = this.beachMap.createLayer(0, beachTileset, 0, 0);
     this.beachLayer.setDepth(1);
+    this.beachLayer.setSkipCull(true);
 
     this.waterMap = this.make.tilemap({ data: water, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
     const waterTileset = this.waterMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
     this.waterLayer = this.waterMap.createLayer(0, waterTileset, 0, 0);
     this.waterLayer.setDepth(2);
+    this.waterLayer.setSkipCull(true);
     this.waterLayer.setCollisionByExclusion([0]);
 
     this.propsMap = this.make.tilemap({ data: props, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
     const propsTileset = this.propsMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
     this.propsLayer = this.propsMap.createLayer(0, propsTileset, 0, 0);
     this.propsLayer.setDepth(4);
+    this.propsLayer.setSkipCull(true);
     this.createWorldDecor();
   }
 
   createWorldDecor() {
+    const trees = [
+      [10, 13], [23, 19], [42, 16], [57, 14], [78, 18], [101, 15], [116, 22],
+      [12, 45], [39, 50], [57, 44], [74, 51], [99, 55], [116, 65],
+      [14, 80], [34, 91], [53, 75], [66, 82], [87, 103], [110, 91], [119, 110]
+    ];
+    trees.forEach(([tileX, tileY]) => {
+      const tree = this.add.image(tileX * TILE_SIZE + TILE_SIZE, tileY * TILE_SIZE + TILE_SIZE * 2, 'forest_palm');
+      tree.setOrigin(0.5, 1);
+      tree.setScale(2.2);
+      tree.setDepth(5 + tileY / MAP_TILES_H * 3);
+    });
+
     const boats = [
       [416, 448, 0],
       [1456, 512, 1],
@@ -368,6 +373,7 @@ class MainScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.roundPixels = true;
+    this.cameras.main.setZoom(2);
 
     const worldBackdrop = this.add.rectangle(
       WORLD_WIDTH / 2,
