@@ -24,9 +24,9 @@ const STANDARD_DISPLAY_W = 64;
 const STANDARD_DISPLAY_H = 64;
 const STANDARD_HITBOX_W = 32;
 const STANDARD_HITBOX_H = 48;
-const WORLD_WIDTH = 2000;
-const WORLD_HEIGHT = 2000;
-const TILE_SIZE = 16;
+const WORLD_WIDTH = 2048;
+const WORLD_HEIGHT = 2048;
+const TILE_SIZE = 32;
 const TILE_MARGIN = 1;
 const TILE_SPACING = 2;
 const MAP_TILES_W = WORLD_WIDTH / TILE_SIZE;
@@ -250,7 +250,7 @@ class MainScene extends Phaser.Scene {
 
   createWorldMap() {
     const tile = (id) => id + 1;
-    const ground = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(tile(315)));
+    const ground = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(tile(86)));
     const beach = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
     const water = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
 
@@ -258,9 +258,9 @@ class MainScene extends Phaser.Scene {
       for (let x = 0; x < MAP_TILES_W; x += 1) {
         const variation = (x * 17 + y * 31) % 41;
         if (variation === 0 || variation === 1) {
-          ground[y][x] = tile(279);
+          ground[y][x] = tile(86);
         } else if (variation === 2) {
-          ground[y][x] = tile(320);
+          ground[y][x] = tile(85);
         }
       }
     }
@@ -270,39 +270,39 @@ class MainScene extends Phaser.Scene {
         for (let x = Math.max(0, centerX - radiusX - 2); x < Math.min(MAP_TILES_W, centerX + radiusX + 3); x += 1) {
           const distance = ((x - centerX) ** 2) / ((radiusX + 2) ** 2) + ((y - centerY) ** 2) / ((radiusY + 2) ** 2);
           if (distance <= 1) {
-            beach[y][x] = tile(224);
+            beach[y][x] = tile(84);
           }
           const innerDistance = ((x - centerX) ** 2) / (radiusX ** 2) + ((y - centerY) ** 2) / (radiusY ** 2);
           if (innerDistance <= 1) {
             beach[y][x] = 0;
-            water[y][x] = tile(288);
+            water[y][x] = tile(38);
           }
         }
       }
     };
 
-    paintEllipse(26, 28, 11, 8);
-    paintEllipse(91, 32, 15, 10);
-    paintEllipse(76, 91, 10, 7);
+    paintEllipse(13, 14, 6, 4);
+    paintEllipse(45, 16, 8, 5);
+    paintEllipse(38, 45, 5, 4);
 
     for (let y = 0; y < MAP_TILES_H; y += 1) {
-      const riverX = Math.round(108 + Math.sin(y * 0.11) * 9);
-      for (let offset = -2; offset <= 2; offset += 1) {
+      const riverX = Math.round(54 + Math.sin(y * 0.11) * 4);
+      for (let offset = -1; offset <= 1; offset += 1) {
         const x = riverX + offset;
         if (x >= 0 && x < MAP_TILES_W) {
-          water[y][x] = tile(288);
+          water[y][x] = tile(38);
           beach[y][x] = 0;
         }
       }
     }
 
-    for (let step = 0; step < 86; step += 1) {
-      const x = Math.round(12 + step * 0.82);
-      const y = Math.round(108 - step * 0.58 + Math.sin(step * 0.22) * 3);
+    for (let step = 0; step < 43; step += 1) {
+      const x = Math.round(6 + step * 0.82);
+      const y = Math.round(54 - step * 0.58 + Math.sin(step * 0.22) * 1.5);
       for (let offset = -1; offset <= 1; offset += 1) {
         const pathY = y + offset;
         if (x >= 0 && x < MAP_TILES_W && pathY >= 0 && pathY < MAP_TILES_H && !water[pathY][x]) {
-          ground[pathY][x] = tile(237);
+          ground[pathY][x] = tile(84);
         }
       }
     }
@@ -341,9 +341,9 @@ class MainScene extends Phaser.Scene {
 
   createWorldDecor() {
     const trees = [
-      [10, 13], [23, 19], [42, 16], [57, 14], [78, 18], [101, 15], [116, 22],
-      [12, 45], [39, 50], [57, 44], [74, 51], [99, 55], [116, 65],
-      [14, 80], [34, 91], [53, 75], [66, 82], [87, 103], [110, 91], [119, 110]
+      [5, 7], [12, 10], [21, 8], [29, 7], [39, 9], [51, 8], [58, 11],
+      [6, 23], [20, 25], [29, 22], [37, 26], [50, 28], [58, 33],
+      [7, 40], [17, 46], [27, 38], [33, 41], [44, 52], [55, 46], [60, 55]
     ];
     trees.forEach(([tileX, tileY]) => {
       const tree = this.add.image(tileX * TILE_SIZE + TILE_SIZE, tileY * TILE_SIZE + TILE_SIZE * 2, 'forest_palm');
@@ -353,28 +353,28 @@ class MainScene extends Phaser.Scene {
     });
 
     const boats = [
-      [416, 448, 0],
-      [1456, 512, 1],
-      [1216, 1456, 2]
+      [208, 224, 0],
+      [728, 256, 1],
+      [608, 728, 2]
     ];
     boats.forEach(([x, y, frame]) => {
       this.add.sprite(x, y, 'forest_boats', frame).setScale(1.15).setDepth(3);
     });
 
     const chests = [
-      [560, 1328, 0],
-      [1120, 832, 1],
-      [1632, 1280, 2]
+      [280, 664, 0],
+      [560, 416, 1],
+      [816, 640, 2]
     ];
     chests.forEach(([x, y, frame]) => {
       this.add.sprite(x, y, 'forest_chest', frame).setScale(1.2).setDepth(6);
     });
 
     const worldCharacters = [
-      [704, 1184, 0],
-      [752, 1184, 1],
-      [800, 1184, 2],
-      [1088, 848, 3]
+      [352, 592, 0],
+      [376, 592, 1],
+      [400, 592, 2],
+      [544, 424, 3]
     ];
     worldCharacters.forEach(([x, y, frame]) => {
       this.add.sprite(x, y, 'forest_characters', frame).setScale(1.65).setDepth(6);
