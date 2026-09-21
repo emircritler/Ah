@@ -367,6 +367,16 @@ class MainScene extends Phaser.Scene {
     chests.forEach(([x, y, frame]) => {
       this.add.sprite(x, y, 'forest_chest', frame).setScale(1.2).setDepth(6);
     });
+
+    const worldCharacters = [
+      [704, 1184, 0],
+      [752, 1184, 1],
+      [800, 1184, 2],
+      [1088, 848, 3]
+    ];
+    worldCharacters.forEach(([x, y, frame]) => {
+      this.add.sprite(x, y, 'forest_characters', frame).setScale(1.65).setDepth(6);
+    });
   }
 
   create() {
