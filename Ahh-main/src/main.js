@@ -3,8 +3,16 @@ import VirtualJoyStickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 
 const FRAME_W = 64;
 const FRAME_H = 64;
-const ATTACK_FRAME_W = 64;
-const ATTACK_FRAME_H = 64;
+const ATTACK_COLUMNS = 8;
+const ATTACK_ROWS = 1;
+const ATTACK_SHEET_W = 512;
+const ATTACK_SHEET_H = 64;
+const ATTACK_FRAME_W = ATTACK_SHEET_W / ATTACK_COLUMNS;
+const ATTACK_FRAME_H = ATTACK_SHEET_H / ATTACK_ROWS;
+const STANDARD_DISPLAY_W = 64;
+const STANDARD_DISPLAY_H = 64;
+const STANDARD_HITBOX_W = 32;
+const STANDARD_HITBOX_H = 48;
 const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
 const PLAYER_SPEED = 220;
@@ -169,12 +177,18 @@ class MainScene extends Phaser.Scene {
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
     this.player.setScale(1.25);
-    this.player.setDisplaySize(64, 64);
+    this.player.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
     this.setPlayerHitbox();
     this.player.setVisible(true);
     this.player.setAlpha(1);
     this.player.body.setMaxVelocity(RUN_SPEED, RUN_SPEED);
     this.player.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT));
+
+    this.attackEffect = this.add.sprite(this.player.x, this.player.y, 'sword_attack_front');
+    this.attackEffect.setOrigin(0.5, 0.5);
+    this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
+    this.attackEffect.setDepth(11);
+    this.attackEffect.setVisible(false);
 
     this.dummy = this.physics.add.sprite(
       Phaser.Math.Between(500, WORLD_WIDTH - 500),
@@ -218,15 +232,8 @@ class MainScene extends Phaser.Scene {
 
     this.createMobileControls();
 
-    this.player.on('animationcomplete', (anim) => {
-      const attackAnimation = anim.key && (
-        anim.key === 'attack_sword'
-        || anim.key === 'attack_unarmed'
-        || anim.key.startsWith('sword_attack_')
-        || anim.key.startsWith('unarmed_attack_')
-      );
-
-      if (attackAnimation) {
+    this.attackEffect.on('animationcomplete', (anim) => {
+      if (anim.key && anim.key.startsWith('sword_attack_')) {
         this.finishAttack();
       }
     });
@@ -260,7 +267,10 @@ class MainScene extends Phaser.Scene {
         return;
       }
 
-      const frameCount = this.getVisibleFrameCount(textureKey, ATTACK_FRAME_W, ATTACK_FRAME_H);
+      const frameCount = Math.min(
+        ATTACK_COLUMNS * ATTACK_ROWS,
+        this.getVisibleFrameCount(textureKey, ATTACK_FRAME_W, ATTACK_FRAME_H)
+      );
       animationDefs.push([textureKey, textureKey, 0, frameCount - 1, 10, 0]);
     });
 
@@ -329,17 +339,21 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    const hitboxWidth = 32;
-    const hitboxHeight = 48;
-    this.player.body.setSize(hitboxWidth, hitboxHeight);
+    this.player.body.setSize(STANDARD_HITBOX_W, STANDARD_HITBOX_H);
     this.player.body.setOffset(
-      (this.player.width - hitboxWidth) / 2,
-      (this.player.height - hitboxHeight) / 2
+      (this.player.width - STANDARD_HITBOX_W) / 2,
+      (this.player.height - STANDARD_HITBOX_H) / 2
     );
   }
 
   finishAttack() {
     this.isAttacking = false;
+
+    if (this.attackEffect) {
+      this.attackEffect.anims.stop();
+      this.attackEffect.setVisible(false);
+      this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
+    }
 
     if (this.attackTimer) {
       this.attackTimer.remove(false);
@@ -347,6 +361,7 @@ class MainScene extends Phaser.Scene {
     }
 
     this.playIdleAnimation();
+    this.setPlayerHitbox();
   }
 
   createMobileControls() {
@@ -451,7 +466,12 @@ class MainScene extends Phaser.Scene {
     const attackDirection = this.lastFacing || 'front';
     const attackKey = `sword_attack_${attackDirection}`;
     const fallbackKey = 'sword_attack_front';
-    const attackStarted = this.safePlayAnimation(this.player, attackKey, fallbackKey);
+    this.safePlayAnimation(this.player, `sword_idle_${attackDirection}`, 'sword_idle_front');
+    this.attackEffect.setTexture(attackKey);
+    this.attackEffect.setOrigin(0.5, 0.5);
+    this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
+    this.attackEffect.setPosition(this.player.x, this.player.y);
+    const attackStarted = this.safePlayAnimation(this.attackEffect, attackKey, fallbackKey);
 
     if (!attackStarted) {
       this.finishAttack();
@@ -492,6 +512,10 @@ class MainScene extends Phaser.Scene {
   }
 
   update() {
+    if (this.attackEffect && this.player) {
+      this.attackEffect.setPosition(this.player.x, this.player.y);
+    }
+
     const left = this.cursors.left.isDown || this.wasd.left.isDown;
     const right = this.cursors.right.isDown || this.wasd.right.isDown;
     const up = this.cursors.up.isDown || this.wasd.up.isDown;
