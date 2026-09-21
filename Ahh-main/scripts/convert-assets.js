@@ -15,6 +15,11 @@ const RAW_DIR = path.join(ROOT_DIR, 'assets', 'raw');
 const OUTPUT_DIR = path.join(ROOT_DIR, 'public', 'assets');
 const COMPOSITE_ATTACK_SOURCE = path.join(ROOT_DIR, 'PNG', 'Sword', 'Without_shadow', 'Sword_attack_without_shadow.png');
 const COMPOSITE_ATTACK_OUTPUT = path.join(OUTPUT_DIR, 'sword_attack_atlas.png');
+const COMPOSITE_SWORD_SOURCES = [
+  ['Sword_Idle_without_shadow.png', 'sword_idle_atlas.png'],
+  ['Sword_Walk_without_shadow.png', 'sword_walk_atlas.png'],
+  ['Sword_Run_without_shadow.png', 'sword_run_atlas.png']
+];
 
 const SUPPORTED_EXTENSIONS = new Set(['.psd', '.ase', '.aseprite']);
 
@@ -253,6 +258,12 @@ async function main() {
   await ensureDir(RAW_DIR);
   await ensureDir(OUTPUT_DIR);
   await fs.copyFile(COMPOSITE_ATTACK_SOURCE, COMPOSITE_ATTACK_OUTPUT);
+  for (const [sourceName, outputName] of COMPOSITE_SWORD_SOURCES) {
+    await fs.copyFile(
+      path.join(ROOT_DIR, 'PNG', 'Sword', 'Without_shadow', sourceName),
+      path.join(OUTPUT_DIR, outputName)
+    );
+  }
 
   const files = await findAssetFiles();
 
