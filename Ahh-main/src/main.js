@@ -321,7 +321,72 @@ class MainScene extends Phaser.Scene {
       }
 
       const sourceImage = sourceTexture.getSourceImage();
-      bodyContext.drawImage(sourceImage, 0, 0);
+      const idleTexture = this.textures.get(`sword_idle_${direction}`)
+        || this.textures.get('sword_idle_front');
+      const idleImage = idleTexture ? idleTexture.getSourceImage() : null;
+      const idleFrameCount = idleImage
+        ? Math.max(1, Math.floor(idleImage.width / FRAME_W))
+        : 1;
+      const frameCanvas = document.createElement('canvas');
+      frameCanvas.width = ATTACK_FRAME_W;
+      frameCanvas.height = ATTACK_FRAME_H;
+      const frameContext = frameCanvas.getContext('2d', { willReadFrequently: true });
+      if (!frameContext) {
+        return;
+      }
+
+      const isSwooshPixel = (data, pixelIndex) => {
+        const red = data[pixelIndex];
+        const green = data[pixelIndex + 1];
+        const blue = data[pixelIndex + 2];
+        const brightness = red + green + blue;
+        const colorRange = Math.max(red, green, blue) - Math.min(red, green, blue);
+        return data[pixelIndex + 3] > 0 && brightness > 390 && colorRange < 90;
+      };
+
+      for (let frameIndex = 0; frameIndex < ATTACK_COLUMNS * ATTACK_ROWS; frameIndex += 1) {
+        frameContext.clearRect(0, 0, ATTACK_FRAME_W, ATTACK_FRAME_H);
+        frameContext.drawImage(
+          sourceImage,
+          frameIndex * ATTACK_FRAME_W,
+          0,
+          ATTACK_FRAME_W,
+          ATTACK_FRAME_H,
+          0,
+          0,
+          ATTACK_FRAME_W,
+          ATTACK_FRAME_H
+        );
+
+        const frameImageData = frameContext.getImageData(0, 0, ATTACK_FRAME_W, ATTACK_FRAME_H);
+        let bodyPixelCount = 0;
+        for (let pixelIndex = 0; pixelIndex < frameImageData.data.length; pixelIndex += 4) {
+          if (isSwooshPixel(frameImageData.data, pixelIndex)) {
+            frameImageData.data[pixelIndex + 3] = 0;
+          } else if (frameImageData.data[pixelIndex + 3] > 0) {
+            bodyPixelCount += 1;
+          }
+        }
+
+        frameContext.putImageData(frameImageData, 0, 0);
+        if (bodyPixelCount < 12 && idleImage) {
+          frameContext.clearRect(0, 0, ATTACK_FRAME_W, ATTACK_FRAME_H);
+          frameContext.drawImage(
+            idleImage,
+            (frameIndex % idleFrameCount) * FRAME_W,
+            0,
+            FRAME_W,
+            FRAME_H,
+            0,
+            0,
+            ATTACK_FRAME_W,
+            ATTACK_FRAME_H
+          );
+        }
+
+        bodyContext.drawImage(frameCanvas, frameIndex * ATTACK_FRAME_W, 0);
+      }
+
       for (let frameIndex = 0; frameIndex < ATTACK_EFFECT_FRAME_COUNT; frameIndex += 1) {
         effectContext.drawImage(
           sourceImage,
@@ -336,22 +401,7 @@ class MainScene extends Phaser.Scene {
         );
       }
 
-      const bodyImageData = bodyContext.getImageData(0, 0, bodyCanvas.width, bodyCanvas.height);
       const effectImageData = effectContext.getImageData(0, 0, effectCanvas.width, effectCanvas.height);
-      const isSwooshPixel = (data, pixelIndex) => {
-        const red = data[pixelIndex];
-        const green = data[pixelIndex + 1];
-        const blue = data[pixelIndex + 2];
-        const brightness = red + green + blue;
-        const colorRange = Math.max(red, green, blue) - Math.min(red, green, blue);
-        return data[pixelIndex + 3] > 0 && brightness > 390 && colorRange < 90;
-      };
-
-      for (let pixelIndex = 0; pixelIndex < bodyImageData.data.length; pixelIndex += 4) {
-        if (isSwooshPixel(bodyImageData.data, pixelIndex)) {
-          bodyImageData.data[pixelIndex + 3] = 0;
-        }
-      }
 
       for (let pixelIndex = 0; pixelIndex < effectImageData.data.length; pixelIndex += 4) {
         if (!isSwooshPixel(effectImageData.data, pixelIndex)) {
@@ -359,7 +409,6 @@ class MainScene extends Phaser.Scene {
         }
       }
 
-      bodyContext.putImageData(bodyImageData, 0, 0);
       effectContext.putImageData(effectImageData, 0, 0);
       this.textures.addSpriteSheet(`sword_attack_body_${direction}`, bodyCanvas, {
         frameWidth: ATTACK_FRAME_W,
