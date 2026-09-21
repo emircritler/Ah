@@ -32,6 +32,7 @@ const MAP_TILES_H = WORLD_HEIGHT / TILE_SIZE;
 const PLAYER_SPEED = 150;
 const RUN_SPEED = 240;
 const MAX_PLAYER_HEALTH = 100;
+const PLAYER_DISPLAY_NAME = 'AHRON';
 const ANIMAL_DEFS = {
   fox: {
     actions: { idle: 4, walk: 6, run: 6, hurt: 4, death: 6 },
@@ -351,6 +352,7 @@ class MainScene extends Phaser.Scene {
     this.player.setAlpha(1);
     this.player.body.setMaxVelocity(RUN_SPEED, RUN_SPEED);
     this.player.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT));
+    this.createPlayerNameplate();
 
     this.createAnimals();
     this.physics.add.collider(this.player, this.waterLayer);
@@ -401,6 +403,61 @@ class MainScene extends Phaser.Scene {
     this.safePlayAnimation(this.player, 'unarmed_idle_front', 'unarmed_idle_front');
     this.scale.on('resize', this.resizeUi, this);
     this.resizeUi();
+  }
+
+  createPlayerNameplate() {
+    this.playerNameplate = this.add.container(this.player.x, this.player.y - 72);
+    this.playerNameplate.setDepth(30);
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x06101b, 0.92);
+    panel.fillRoundedRect(-78, -21, 156, 42, 10);
+    panel.lineStyle(1, 0x668ea2, 0.95);
+    panel.strokeRoundedRect(-78, -21, 156, 42, 10);
+    panel.lineStyle(2, 0xe7b755, 0.9);
+    panel.lineBetween(-68, 17, 68, 17);
+    this.playerNameplate.add(panel);
+
+    this.nameplateLevelBadge = this.add.graphics();
+    this.nameplateLevelBadge.fillStyle(0xe7b755, 1);
+    this.nameplateLevelBadge.fillCircle(-61, -8, 10);
+    this.nameplateLevelBadge.lineStyle(1, 0xffefb1, 1);
+    this.nameplateLevelBadge.strokeCircle(-61, -8, 10);
+    this.playerNameplate.add(this.nameplateLevelBadge);
+
+    this.nameplateLevelText = this.add.text(-61, -8, '1', {
+      fontFamily: 'Georgia, serif',
+      fontSize: '10px',
+      color: '#241a0b',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.playerNameplate.add(this.nameplateLevelText);
+
+    this.nameplateNameText = this.add.text(-45, -17, PLAYER_DISPLAY_NAME, {
+      fontFamily: 'Georgia, serif',
+      fontSize: '12px',
+      color: '#f3fbff',
+      fontStyle: 'bold'
+    });
+    this.playerNameplate.add(this.nameplateNameText);
+
+    this.nameplateHpBar = this.add.graphics();
+    this.playerNameplate.add(this.nameplateHpBar);
+    this.updatePlayerNameplate();
+  }
+
+  updatePlayerNameplate() {
+    if (!this.playerNameplate) {
+      return;
+    }
+
+    this.playerNameplate.setPosition(this.player.x, this.player.y - 72);
+    this.nameplateLevelText.setText(String(this.playerLevel));
+    this.nameplateHpBar.clear();
+    this.nameplateHpBar.fillStyle(0x1b2a35, 1);
+    this.nameplateHpBar.fillRoundedRect(-68, 5, 136, 8, 4);
+    this.nameplateHpBar.fillStyle(this.playerHealth <= 25 ? 0xe96868 : 0x54d47c, 1);
+    this.nameplateHpBar.fillRoundedRect(-68, 5, Math.max(3, 136 * (this.playerHealth / MAX_PLAYER_HEALTH)), 8, 4);
   }
 
   createAnimations() {
@@ -857,6 +914,7 @@ class MainScene extends Phaser.Scene {
     this.hpLabel.setText(`HP  ${Math.max(0, this.playerHealth)} / ${MAX_PLAYER_HEALTH}`);
     this.drawProgressBar(this.hpBar, 78, 68, 214, 10, healthRatio, 0x52d273, 0x52d273);
     this.killText.setText(`HUNTS  ${this.killCount}`);
+    this.updatePlayerNameplate();
   }
 
   updateXpDisplay() {
@@ -884,6 +942,7 @@ class MainScene extends Phaser.Scene {
       }
     });
     this.levelText.setText(String(this.playerLevel));
+    this.updatePlayerNameplate();
   }
 
   createInventoryPanel() {
@@ -1228,6 +1287,7 @@ class MainScene extends Phaser.Scene {
     }
 
     this.updateAnimals(this.time.now);
+    this.updatePlayerNameplate();
 
     if (this.playerHurtTimer) {
       this.player.setVelocity(0, 0);
