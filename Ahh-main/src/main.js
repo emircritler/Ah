@@ -27,6 +27,8 @@ const STANDARD_HITBOX_H = 48;
 const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
 const TILE_SIZE = 16;
+const TILE_MARGIN = 1;
+const TILE_SPACING = 2;
 const MAP_TILES_W = WORLD_WIDTH / TILE_SIZE;
 const MAP_TILES_H = WORLD_HEIGHT / TILE_SIZE;
 const PLAYER_SPEED = 150;
@@ -128,7 +130,7 @@ class MainScene extends Phaser.Scene {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
-    this.load.image('forest_tileset', `${ASSET_BASE}assets/forest_tileset.png`);
+    this.load.image('forest_tileset_extruded', `${ASSET_BASE}assets/forest_tileset_extruded.png`);
     this.load.image('forest_palm', `${ASSET_BASE}assets/forest_palm.png`);
     this.load.spritesheet('forest_boats', `${ASSET_BASE}assets/forest_boats.png`, {
       frameWidth: 32,
@@ -307,30 +309,30 @@ class MainScene extends Phaser.Scene {
 
     const props = Array.from({ length: MAP_TILES_H }, () => Array(MAP_TILES_W).fill(0));
 
-    const tilesetKey = 'forest_tileset';
+    const tilesetKey = 'forest_tileset_extruded';
     this.textures.get(tilesetKey).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get('forest_palm').setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.groundMap = this.make.tilemap({ data: ground, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const groundTileset = this.groundMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    const groundTileset = this.groundMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, TILE_MARGIN, TILE_SPACING, 1);
     this.groundLayer = this.groundMap.createLayer(0, groundTileset, 0, 0);
     this.groundLayer.setDepth(0);
     this.groundLayer.setSkipCull(true);
 
     this.beachMap = this.make.tilemap({ data: beach, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const beachTileset = this.beachMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    const beachTileset = this.beachMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, TILE_MARGIN, TILE_SPACING, 1);
     this.beachLayer = this.beachMap.createLayer(0, beachTileset, 0, 0);
     this.beachLayer.setDepth(1);
     this.beachLayer.setSkipCull(true);
 
     this.waterMap = this.make.tilemap({ data: water, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const waterTileset = this.waterMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    const waterTileset = this.waterMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, TILE_MARGIN, TILE_SPACING, 1);
     this.waterLayer = this.waterMap.createLayer(0, waterTileset, 0, 0);
     this.waterLayer.setDepth(2);
     this.waterLayer.setSkipCull(true);
     this.waterLayer.setCollisionByExclusion([0]);
 
     this.propsMap = this.make.tilemap({ data: props, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const propsTileset = this.propsMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
+    const propsTileset = this.propsMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, TILE_MARGIN, TILE_SPACING, 1);
     this.propsLayer = this.propsMap.createLayer(0, propsTileset, 0, 0);
     this.propsLayer.setDepth(4);
     this.propsLayer.setSkipCull(true);
