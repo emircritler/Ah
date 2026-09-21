@@ -443,7 +443,6 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.ignore(this.uiContainer);
 
     this.createMobileControls();
-    this.createPremiumHud();
     this.createInventoryPanel();
 
     this.player.on('animationcomplete', (anim) => {
@@ -466,36 +465,37 @@ class MainScene extends Phaser.Scene {
   }
 
   createPlayerNameplate() {
-    this.playerNameplate = this.add.container(this.player.x, this.player.y - 72);
+    this.playerNameplate = this.add.container(this.player.x, this.player.y - 54);
     this.playerNameplate.setDepth(30);
+    this.playerNameplate.setScale(0.75);
 
     const panel = this.add.graphics();
     panel.fillStyle(0x06101b, 0.92);
-    panel.fillRoundedRect(-78, -21, 156, 42, 10);
+    panel.fillRoundedRect(-66, -18, 132, 36, 9);
     panel.lineStyle(1, 0x668ea2, 0.95);
-    panel.strokeRoundedRect(-78, -21, 156, 42, 10);
+    panel.strokeRoundedRect(-66, -18, 132, 36, 9);
     panel.lineStyle(2, 0xe7b755, 0.9);
-    panel.lineBetween(-68, 17, 68, 17);
+    panel.lineBetween(-57, 14, 57, 14);
     this.playerNameplate.add(panel);
 
     this.nameplateLevelBadge = this.add.graphics();
     this.nameplateLevelBadge.fillStyle(0xe7b755, 1);
-    this.nameplateLevelBadge.fillCircle(-61, -8, 10);
+    this.nameplateLevelBadge.fillCircle(-51, -8, 8);
     this.nameplateLevelBadge.lineStyle(1, 0xffefb1, 1);
-    this.nameplateLevelBadge.strokeCircle(-61, -8, 10);
+    this.nameplateLevelBadge.strokeCircle(-51, -8, 8);
     this.playerNameplate.add(this.nameplateLevelBadge);
 
-    this.nameplateLevelText = this.add.text(-61, -8, '1', {
+    this.nameplateLevelText = this.add.text(-51, -8, '1', {
       fontFamily: 'Georgia, serif',
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#241a0b',
       fontStyle: 'bold'
     }).setOrigin(0.5);
     this.playerNameplate.add(this.nameplateLevelText);
 
-    this.nameplateNameText = this.add.text(-45, -17, PLAYER_DISPLAY_NAME, {
+    this.nameplateNameText = this.add.text(-37, -16, PLAYER_DISPLAY_NAME, {
       fontFamily: 'Georgia, serif',
-      fontSize: '12px',
+      fontSize: '10px',
       color: '#f3fbff',
       fontStyle: 'bold'
     });
@@ -503,6 +503,8 @@ class MainScene extends Phaser.Scene {
 
     this.nameplateHpBar = this.add.graphics();
     this.playerNameplate.add(this.nameplateHpBar);
+    this.nameplateXpBar = this.add.graphics();
+    this.playerNameplate.add(this.nameplateXpBar);
     this.updatePlayerNameplate();
   }
 
@@ -511,13 +513,18 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.playerNameplate.setPosition(this.player.x, this.player.y - 72);
+    this.playerNameplate.setPosition(this.player.x, this.player.y - 54);
     this.nameplateLevelText.setText(String(this.playerLevel));
     this.nameplateHpBar.clear();
     this.nameplateHpBar.fillStyle(0x1b2a35, 1);
-    this.nameplateHpBar.fillRoundedRect(-68, 5, 136, 8, 4);
+    this.nameplateHpBar.fillRoundedRect(-55, -1, 110, 6, 3);
     this.nameplateHpBar.fillStyle(this.playerHealth <= 25 ? 0xe96868 : 0x54d47c, 1);
-    this.nameplateHpBar.fillRoundedRect(-68, 5, Math.max(3, 136 * (this.playerHealth / MAX_PLAYER_HEALTH)), 8, 4);
+    this.nameplateHpBar.fillRoundedRect(-55, -1, Math.max(3, 110 * (this.playerHealth / MAX_PLAYER_HEALTH)), 6, 3);
+    this.nameplateXpBar.clear();
+    this.nameplateXpBar.fillStyle(0x1b2a35, 1);
+    this.nameplateXpBar.fillRoundedRect(-55, 8, 110, 4, 2);
+    this.nameplateXpBar.fillStyle(0x5fd9ef, 1);
+    this.nameplateXpBar.fillRoundedRect(-55, 8, Math.max(2, 110 * (this.playerXp / this.playerXpToNext)), 4, 2);
   }
 
   createAnimations() {
@@ -966,19 +973,18 @@ class MainScene extends Phaser.Scene {
   }
 
   updateHealthDisplay() {
-    if (!this.hpBar) {
-      return;
+    if (this.hpBar) {
+      const healthRatio = Phaser.Math.Clamp(this.playerHealth / MAX_PLAYER_HEALTH, 0, 1);
+      this.hpLabel.setText(`HP  ${Math.max(0, this.playerHealth)} / ${MAX_PLAYER_HEALTH}`);
+      this.drawProgressBar(this.hpBar, 78, 68, 214, 10, healthRatio, 0x52d273, 0x52d273);
+      this.killText.setText(`HUNTS  ${this.killCount}`);
     }
-
-    const healthRatio = Phaser.Math.Clamp(this.playerHealth / MAX_PLAYER_HEALTH, 0, 1);
-    this.hpLabel.setText(`HP  ${Math.max(0, this.playerHealth)} / ${MAX_PLAYER_HEALTH}`);
-    this.drawProgressBar(this.hpBar, 78, 68, 214, 10, healthRatio, 0x52d273, 0x52d273);
-    this.killText.setText(`HUNTS  ${this.killCount}`);
     this.updatePlayerNameplate();
   }
 
   updateXpDisplay() {
     if (!this.xpBar) {
+      this.updatePlayerNameplate();
       return;
     }
 
@@ -1100,7 +1106,7 @@ class MainScene extends Phaser.Scene {
     this.updateHealthDisplay();
     this.updateXpDisplay();
     this.tweens.add({
-      targets: this.xpBar,
+      targets: this.xpBar || this.nameplateXpBar,
       alpha: 0.45,
       duration: 120,
       yoyo: true,
@@ -1124,6 +1130,19 @@ class MainScene extends Phaser.Scene {
   }
 
   showLevelUp() {
+    if (!this.levelUpText || !this.levelBadge) {
+      this.updatePlayerNameplate();
+      this.tweens.add({
+        targets: this.nameplateLevelBadge,
+        scale: 1.2,
+        yoyo: true,
+        duration: 160,
+        repeat: 2,
+        ease: 'Sine.easeInOut'
+      });
+      return;
+    }
+
     this.levelUpText.setText(`LEVEL ${this.playerLevel}`);
     this.levelUpText.setPosition(this.scale.width / 2, 146);
     this.levelUpText.setAlpha(1);
