@@ -70,6 +70,27 @@ class MainScene extends Phaser.Scene {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
+
+    const foxActions = [
+      ['idle', 4],
+      ['walk', 6],
+      ['run', 6]
+    ];
+    const foxDirections = [
+      ['back', 'back'],
+      ['front', 'front'],
+      ['side_left', 'left'],
+      ['side_right', 'right']
+    ];
+    foxActions.forEach(([action]) => {
+      foxDirections.forEach(([direction, fileDirection]) => {
+        this.load.spritesheet(
+          `fox_${action}_${direction}`,
+          `/assets/fox_${action}_${fileDirection}.png`,
+          { frameWidth: FRAME_W, frameHeight: FRAME_H }
+        );
+      });
+    });
   }
 
   safePlayAnimation(target, animationKey, fallbackKey = 'idle_unarmed') {
@@ -191,17 +212,17 @@ class MainScene extends Phaser.Scene {
     this.dummy = this.physics.add.sprite(
       Phaser.Math.Between(500, WORLD_WIDTH - 500),
       Phaser.Math.Between(300, WORLD_HEIGHT - 300),
-      'unarmed_idle_front'
+      'fox_idle_front'
     );
-    this.dummy.setTexture('unarmed_idle_front');
-    this.dummy.setScale(1.2);
+    this.dummy.setTexture('fox_idle_front');
+    this.dummy.setScale(1.35);
     this.dummy.setDepth(9);
     this.dummy.setImmovable(true);
     this.dummy.body.setAllowGravity(false);
     this.dummy.body.moves = false;
     this.dummy.body.setCollideWorldBounds(true);
     this.dummy.setTint(0x88cc88);
-    this.safePlayAnimation(this.dummy, 'unarmed_idle_front', 'unarmed_idle_front');
+    this.safePlayAnimation(this.dummy, 'fox_idle_front', 'fox_idle_front');
     this.dummy.setAlpha(0.9);
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -291,6 +312,23 @@ class MainScene extends Phaser.Scene {
           repeat
         });
       }
+    });
+
+    const foxActions = { idle: 4, walk: 6, run: 6 };
+    Object.entries(foxActions).forEach(([action, columns]) => {
+      ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
+        const key = `fox_${action}_${direction}`;
+        if (!this.textures.exists(key) || this.anims.exists(key)) {
+          return;
+        }
+
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(key, { start: 0, end: columns - 1 }),
+          frameRate: action === 'run' ? 12 : action === 'walk' ? 10 : 8,
+          repeat: -1
+        });
+      });
     });
   }
 

@@ -284,7 +284,11 @@ async function main() {
   }
 
   for (const file of files) {
-    await processAsset(file);
+    try {
+      await processAsset(file);
+    } catch (error) {
+      console.warn(`Skipping unsupported asset ${file}:`, error.message);
+    }
   }
 }
 

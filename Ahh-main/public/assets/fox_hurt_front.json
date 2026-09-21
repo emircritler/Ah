@@ -1,0 +1,19 @@
+{
+  "key": "fox_hurt_front",
+  "image": "fox_hurt_front.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 4,
+  "animations": {
+    "default": {
+      "frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "frameRate": 12,
+      "repeat": -1
+    }
+  }
+}

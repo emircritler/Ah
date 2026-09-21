@@ -1,0 +1,21 @@
+{
+  "key": "hare_death_right",
+  "image": "hare_death_right.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 6,
+  "animations": {
+    "default": {
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "frameRate": 12,
+      "repeat": -1
+    }
+  }
+}
