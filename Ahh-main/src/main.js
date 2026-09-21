@@ -532,11 +532,11 @@ class MainScene extends Phaser.Scene {
       ['idle', 'walk', 'run'].forEach((action) => {
         const textureKey = `${weapon}_${action}_atlas`;
         const frameRate = action === 'run' ? 12 : action === 'walk' ? 10 : 8;
-        const columns = actionColumns[action];
         ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
           const row = ATTACK_ROW_BY_DIRECTION[direction];
           const key = `${weapon}_${action}_${direction}`;
-          const start = row * columns;
+          const columns = action === 'idle' && direction === 'back' ? 4 : actionColumns[action];
+          const start = row * actionColumns[action];
           animationDefs.push([key, textureKey, start, start + columns - 1, frameRate, -1]);
         });
       });
