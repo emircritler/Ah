@@ -3,8 +3,8 @@ import VirtualJoyStickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 
 const FRAME_W = 64;
 const FRAME_H = 64;
-const ATTACK_FRAME_W = 128;
-const ATTACK_FRAME_H = 128;
+const ATTACK_FRAME_W = 64;
+const ATTACK_FRAME_H = 64;
 const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
 const PLAYER_SPEED = 220;
@@ -494,8 +494,9 @@ class MainScene extends Phaser.Scene {
       moveSpeed = magnitude > 0.7 ? RUN_SPEED : PLAYER_SPEED;
       usingJoystick = true;
     } else if (keyboardDx !== 0 || keyboardDy !== 0) {
-      vx = keyboardDx * PLAYER_SPEED;
-      vy = keyboardDy * PLAYER_SPEED;
+      const keyboardMagnitude = Math.hypot(keyboardDx, keyboardDy);
+      vx = (keyboardDx / keyboardMagnitude) * PLAYER_SPEED;
+      vy = (keyboardDy / keyboardMagnitude) * PLAYER_SPEED;
       moveSpeed = PLAYER_SPEED;
     }
 
