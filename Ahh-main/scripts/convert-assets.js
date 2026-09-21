@@ -86,7 +86,7 @@ async function createForestPalm() {
     const palm = createCanvas(32, 64);
     const context = palm.getContext('2d');
     context.imageSmoothingEnabled = false;
-    context.drawImage(source, 160, 0, 32, 64, 0, 0, 32, 64);
+    context.drawImage(source, 160, 0, 32, 64, Math.floor(0), Math.floor(0), 32, 64);
     await fs.writeFile(outputPath, palm.toBuffer('image/png'));
   } catch (error) {
     if (error.code !== 'ENOENT') {
@@ -148,9 +148,10 @@ async function createSpriteSheetFromFrames(frames, baseName) {
   const frameHeight = Math.max(...frames.map((frame) => frame.height));
   const sheetCanvas = createCanvas(frameWidth * frames.length, frameHeight);
   const context = sheetCanvas.getContext('2d');
+  context.imageSmoothingEnabled = false;
 
   frames.forEach((frameCanvas, index) => {
-    context.drawImage(frameCanvas, index * frameWidth, 0);
+    context.drawImage(frameCanvas, Math.floor(index * frameWidth), Math.floor(0));
   });
 
   await writePngAndMeta(sheetCanvas, baseName, frameWidth, frameHeight, frames.length);
@@ -184,7 +185,8 @@ async function convertPsdFile(filePath) {
         }
         const canvas = createCanvas(layerCanvas.width, layerCanvas.height);
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(layerCanvas, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(layerCanvas, Math.floor(0), Math.floor(0));
         frames.push(canvas);
       } catch (error) {
         console.warn(`Skipping PSD layer for ${fileName}:`, error.message);
@@ -216,6 +218,7 @@ async function convertAsepriteFile(filePath) {
 
     const canvas = createCanvas(frameWidth || 64, frameHeight || 64);
     const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = false;
 
     for (const chunk of chunks) {
       const cel = chunk?.data;
