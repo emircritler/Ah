@@ -11,6 +11,7 @@ const ATTACK_FRAME_W = ATTACK_SHEET_W / ATTACK_COLUMNS;
 const ATTACK_FRAME_H = ATTACK_SHEET_H / ATTACK_ROWS;
 const ATTACK_EFFECT_START = 3;
 const ATTACK_EFFECT_END = 5;
+const ATTACK_EFFECT_FRAME_COUNT = ATTACK_EFFECT_END - ATTACK_EFFECT_START + 1;
 const STANDARD_DISPLAY_W = 64;
 const STANDARD_DISPLAY_H = 64;
 const STANDARD_HITBOX_W = 32;
@@ -171,6 +172,7 @@ class MainScene extends Phaser.Scene {
 
     grassPatch.setDepth(1);
 
+    this.createAttackEffectTextures();
     this.createAnimations();
 
     this.lastFacing = 'front';
@@ -186,7 +188,7 @@ class MainScene extends Phaser.Scene {
     this.player.body.setMaxVelocity(RUN_SPEED, RUN_SPEED);
     this.player.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT));
 
-    this.attackEffect = this.add.sprite(this.player.x, this.player.y, 'sword_attack_front');
+    this.attackEffect = this.add.sprite(this.player.x, this.player.y, 'sword_swoosh_front');
     this.attackEffect.setOrigin(0.5, 0.5);
     this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
     this.attackEffect.setDepth(11);
@@ -235,7 +237,7 @@ class MainScene extends Phaser.Scene {
     this.createMobileControls();
 
     this.attackEffect.on('animationcomplete', (anim) => {
-      if (anim.key && anim.key.startsWith('sword_attack_')) {
+      if (anim.key && anim.key.startsWith('sword_swoosh_')) {
         this.finishAttack();
       }
     });
@@ -264,18 +266,13 @@ class MainScene extends Phaser.Scene {
       });
     });
 
-    ['sword_attack_back', 'sword_attack_front', 'sword_attack_side_left', 'sword_attack_side_right'].forEach((textureKey) => {
+    ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
+      const textureKey = `sword_swoosh_${direction}`;
       if (!this.textures.exists(textureKey)) {
         return;
       }
 
-      const frameCount = Math.min(
-        ATTACK_COLUMNS * ATTACK_ROWS,
-        this.getVisibleFrameCount(textureKey, ATTACK_FRAME_W, ATTACK_FRAME_H)
-      );
-      const effectStart = Math.min(ATTACK_EFFECT_START, frameCount - 1);
-      const effectEnd = Math.min(ATTACK_EFFECT_END, frameCount - 1);
-      animationDefs.push([textureKey, textureKey, effectStart, effectEnd, 10, 0]);
+      animationDefs.push([textureKey, textureKey, 0, ATTACK_EFFECT_FRAME_COUNT - 1, 10, 0]);
     });
 
     animationDefs.forEach(([key, textureKey, start, end, frameRate, repeat]) => {
@@ -294,48 +291,58 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  getVisibleFrameCount(textureKey, frameWidth, frameHeight) {
-    const texture = this.textures.get(textureKey);
-    const sourceImage = texture.getSourceImage();
-    const frameCount = Math.max(1, Math.floor(sourceImage.width / frameWidth));
+  createAttackEffectTextures() {
+    ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
+      const sourceTexture = this.textures.get(`sword_attack_${direction}`);
+      if (!sourceTexture || typeof document === 'undefined') {
+        return;
+      }
 
-    if (typeof document === 'undefined') {
-      return frameCount;
-    }
+      const canvas = document.createElement('canvas');
+      canvas.width = ATTACK_FRAME_W * ATTACK_EFFECT_FRAME_COUNT;
+      canvas.height = ATTACK_FRAME_H;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) {
+        return;
+      }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = frameWidth;
-    canvas.height = frameHeight;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) {
-      return frameCount;
-    }
-    let lastVisibleFrame = -1;
+      const sourceImage = sourceTexture.getSourceImage();
+      for (let frameIndex = 0; frameIndex < ATTACK_EFFECT_FRAME_COUNT; frameIndex += 1) {
+        context.drawImage(
+          sourceImage,
+          (ATTACK_EFFECT_START + frameIndex) * ATTACK_FRAME_W,
+          0,
+          ATTACK_FRAME_W,
+          ATTACK_FRAME_H,
+          frameIndex * ATTACK_FRAME_W,
+          0,
+          ATTACK_FRAME_W,
+          ATTACK_FRAME_H
+        );
+      }
 
-    for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-      context.clearRect(0, 0, frameWidth, frameHeight);
-      context.drawImage(
-        sourceImage,
-        frameIndex * frameWidth,
-        0,
-        frameWidth,
-        frameHeight,
-        0,
-        0,
-        frameWidth,
-        frameHeight
-      );
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      for (let pixelIndex = 0; pixelIndex < imageData.data.length; pixelIndex += 4) {
+        const red = imageData.data[pixelIndex];
+        const green = imageData.data[pixelIndex + 1];
+        const blue = imageData.data[pixelIndex + 2];
+        const brightness = red + green + blue;
+        const colorRange = Math.max(red, green, blue) - Math.min(red, green, blue);
+        const isSwooshPixel = imageData.data[pixelIndex + 3] > 0
+          && brightness > 390
+          && colorRange < 90;
 
-      const pixels = context.getImageData(0, 0, frameWidth, frameHeight).data;
-      for (let pixelIndex = 3; pixelIndex < pixels.length; pixelIndex += 4) {
-        if (pixels[pixelIndex] > 0) {
-          lastVisibleFrame = frameIndex;
-          break;
+        if (!isSwooshPixel) {
+          imageData.data[pixelIndex + 3] = 0;
         }
       }
-    }
 
-    return lastVisibleFrame + 1 || 1;
+      context.putImageData(imageData, 0, 0);
+      this.textures.addSpriteSheet(`sword_swoosh_${direction}`, canvas, {
+        frameWidth: ATTACK_FRAME_W,
+        frameHeight: ATTACK_FRAME_H
+      });
+    });
   }
 
   setPlayerHitbox() {
@@ -468,8 +475,8 @@ class MainScene extends Phaser.Scene {
     this.player.setOrigin(0.5, 0.5);
     this.setPlayerHitbox();
     const attackDirection = this.lastFacing || 'front';
-    const attackKey = `sword_attack_${attackDirection}`;
-    const fallbackKey = 'sword_attack_front';
+    const attackKey = `sword_swoosh_${attackDirection}`;
+    const fallbackKey = 'sword_swoosh_front';
     this.safePlayAnimation(this.player, `sword_idle_${attackDirection}`, 'sword_idle_front');
     this.attackEffect.setTexture(attackKey);
     this.attackEffect.setOrigin(0.5, 0.5);
@@ -556,7 +563,7 @@ class MainScene extends Phaser.Scene {
     if (this.isAttacking) {
       this.player.setVelocity(0, 0);
       const frameIndex = this.attackEffect.anims.currentFrame ? this.attackEffect.anims.currentFrame.index : 0;
-      if (frameIndex >= ATTACK_EFFECT_START && frameIndex <= ATTACK_EFFECT_END && !this.attackHitLock) {
+      if (frameIndex >= 1 && frameIndex <= 2 && !this.attackHitLock) {
         this.checkAttackHit();
       }
       return;
