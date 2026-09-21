@@ -22,8 +22,8 @@ const STANDARD_HITBOX_W = 32;
 const STANDARD_HITBOX_H = 48;
 const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
-const PLAYER_SPEED = 220;
-const RUN_SPEED = 360;
+const PLAYER_SPEED = 150;
+const RUN_SPEED = 240;
 
 class MainScene extends Phaser.Scene {
   constructor() {
@@ -498,7 +498,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.joystick && this.joystick.force > 5) {
       const force = this.joystick.force;
-      const magnitude = force / this.joystick.radius;
+      const magnitude = Phaser.Math.Clamp(force / this.joystick.radius, 0, 1);
       const nx = this.joystick.forceX / Math.max(1, force);
       const ny = this.joystick.forceY / Math.max(1, force);
       vx = nx * (magnitude > 0.7 ? RUN_SPEED : PLAYER_SPEED);
