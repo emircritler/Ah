@@ -213,7 +213,7 @@ class MainScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
-    this.cameras.main.setZoom(1.0);
+    this.cameras.main.setZoom(1.25);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys({
