@@ -28,6 +28,7 @@ const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
 const PLAYER_SPEED = 150;
 const RUN_SPEED = 240;
+const MAX_PLAYER_HEALTH = 100;
 const ANIMAL_DEFS = {
   fox: {
     actions: { idle: 4, walk: 6, run: 6, hurt: 4, death: 6 },
@@ -79,8 +80,15 @@ class MainScene extends Phaser.Scene {
     this.attackRange = 90;
     this.attackTimer = null;
     this.animals = [];
-    this.playerHealth = 100;
+    this.playerHealth = MAX_PLAYER_HEALTH;
     this.playerHurtTimer = null;
+    this.playerLevel = 1;
+    this.playerXp = 0;
+    this.playerXpToNext = 100;
+    this.displayedXpRatio = 0;
+    this.xpProgressTween = null;
+    this.inventoryOpen = false;
+    this.killCount = 0;
   }
 
   preload() {
@@ -283,7 +291,8 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.ignore(this.uiContainer);
 
     this.createMobileControls();
-    this.createHealthDisplay();
+    this.createPremiumHud();
+    this.createInventoryPanel();
 
     this.player.on('animationcomplete', (anim) => {
       if (anim.key && anim.key.startsWith('sword_attack_')) {
@@ -554,6 +563,10 @@ class MainScene extends Phaser.Scene {
       this.triggerAttack();
     });
 
+    this.inventoryButton = this.createActionButton('BAG', width - 48, 44, 26, 0x2a6174, () => {
+      this.toggleInventory();
+    });
+
     this.equipButton = this.createActionButton('EQUIP', width - 118, height - 210, 42, 0x7b4dff, () => {
       this.currentWeapon = this.currentWeapon === 'sword' ? 'unarmed' : 'sword';
       this.updateEquipButtonLabel();
@@ -596,23 +609,241 @@ class MainScene extends Phaser.Scene {
     this.equipButton.label.setText(text);
   }
 
-  createHealthDisplay() {
-    this.healthText = this.add.text(24, 24, '', {
-      fontSize: '18px',
-      color: '#ffffff',
+  createPremiumHud() {
+    const panelWidth = Math.min(300, this.scale.width - 32);
+    this.hudContainer = this.add.container(0, 0);
+    this.uiContainer.add(this.hudContainer);
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x08111f, 0.94);
+    panel.fillRoundedRect(16, 16, panelWidth, 116, 18);
+    panel.lineStyle(1, 0x4f7898, 0.85);
+    panel.strokeRoundedRect(16, 16, panelWidth, 116, 18);
+    this.hudContainer.add(panel);
+
+    this.levelBadge = this.add.graphics();
+    this.levelBadge.fillStyle(0xf2b84b, 1);
+    this.levelBadge.fillCircle(47, 51, 22);
+    this.levelBadge.lineStyle(2, 0xffe8a3, 0.95);
+    this.levelBadge.strokeCircle(47, 51, 22);
+    this.hudContainer.add(this.levelBadge);
+
+    this.levelText = this.add.text(47, 51, '1', {
+      fontFamily: 'Georgia, serif',
+      fontSize: '19px',
+      color: '#251b09',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.hudContainer.add(this.levelText);
+
+    this.rankText = this.add.text(78, 30, 'WANDERER', {
+      fontFamily: 'Georgia, serif',
+      fontSize: '13px',
+      color: '#d9e8f0',
+      fontStyle: 'bold'
+    });
+    this.hudContainer.add(this.rankText);
+
+    this.hpLabel = this.add.text(78, 52, '', {
+      fontSize: '11px',
+      color: '#b8cbd6'
+    });
+    this.hudContainer.add(this.hpLabel);
+    this.hpBar = this.add.graphics();
+    this.hudContainer.add(this.hpBar);
+
+    this.xpLabel = this.add.text(78, 86, '', {
+      fontSize: '11px',
+      color: '#b8cbd6'
+    });
+    this.hudContainer.add(this.xpLabel);
+    this.xpBar = this.add.graphics();
+    this.hudContainer.add(this.xpBar);
+
+    this.killText = this.add.text(78, 111, '', {
+      fontSize: '10px',
+      color: '#83a8b8'
+    });
+    this.hudContainer.add(this.killText);
+
+    this.levelUpText = this.add.text(this.scale.width / 2, 146, '', {
+      fontFamily: 'Georgia, serif',
+      fontSize: '28px',
+      color: '#ffe7a0',
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setScrollFactor(0);
-    this.uiContainer.add(this.healthText);
-    this.cameras.main.ignore(this.healthText);
+      stroke: '#3e2411',
+      strokeThickness: 5
+    }).setOrigin(0.5).setAlpha(0);
+    this.uiContainer.add(this.levelUpText);
     this.updateHealthDisplay();
+    this.updateXpDisplay();
+  }
+
+  drawProgressBar(graphics, x, y, width, height, progress, fillColor, glowColor) {
+    graphics.clear();
+    graphics.fillStyle(0x152433, 1);
+    graphics.fillRoundedRect(x, y, width, height, height / 2);
+    graphics.fillStyle(glowColor, 0.25);
+    graphics.fillRoundedRect(x, y, width, height, height / 2);
+    if (progress > 0) {
+      graphics.fillStyle(fillColor, 1);
+      graphics.fillRoundedRect(x, y, Math.max(3, width * progress), height, height / 2);
+    }
   }
 
   updateHealthDisplay() {
-    if (this.healthText) {
-      this.healthText.setText(`HP ${Math.max(0, this.playerHealth)} / 100`);
+    if (!this.hpBar) {
+      return;
     }
+
+    const healthRatio = Phaser.Math.Clamp(this.playerHealth / MAX_PLAYER_HEALTH, 0, 1);
+    this.hpLabel.setText(`HP  ${Math.max(0, this.playerHealth)} / ${MAX_PLAYER_HEALTH}`);
+    this.drawProgressBar(this.hpBar, 78, 68, 214, 10, healthRatio, 0x52d273, 0x52d273);
+    this.killText.setText(`HUNTS  ${this.killCount}`);
+  }
+
+  updateXpDisplay() {
+    if (!this.xpBar) {
+      return;
+    }
+
+    const xpRatio = Phaser.Math.Clamp(this.playerXp / this.playerXpToNext, 0, 1);
+    this.xpLabel.setText(`XP  ${this.playerXp} / ${this.playerXpToNext}`);
+    if (this.xpProgressTween) {
+      this.xpProgressTween.stop();
+    }
+    this.xpProgressTween = this.tweens.addCounter({
+      from: this.displayedXpRatio,
+      to: xpRatio,
+      duration: 520,
+      ease: 'Cubic.easeOut',
+      onUpdate: (tween) => {
+        this.displayedXpRatio = tween.getValue();
+        this.drawProgressBar(this.xpBar, 78, 101, 214, 7, this.displayedXpRatio, 0x5fd9ef, 0x5fd9ef);
+      },
+      onComplete: () => {
+        this.displayedXpRatio = xpRatio;
+        this.xpProgressTween = null;
+      }
+    });
+    this.levelText.setText(String(this.playerLevel));
+  }
+
+  createInventoryPanel() {
+    const width = Math.min(320, this.scale.width - 28);
+    const height = 276;
+    const panel = this.add.container(this.scale.width - width - 14, 76);
+    const background = this.add.graphics();
+    background.fillStyle(0x091522, 0.98);
+    background.fillRoundedRect(0, 0, width, height, 18);
+    background.lineStyle(1, 0x517b92, 0.9);
+    background.strokeRoundedRect(0, 0, width, height, 18);
+    panel.add(background);
+
+    const title = this.add.text(22, 18, 'INVENTORY', {
+      fontFamily: 'Georgia, serif',
+      fontSize: '18px',
+      color: '#e7f4f7',
+      fontStyle: 'bold'
+    });
+    panel.add(title);
+    const subtitle = this.add.text(22, 43, 'FIELD LOADOUT', {
+      fontSize: '10px',
+      color: '#6f9bae'
+    });
+    panel.add(subtitle);
+
+    const items = [
+      ['SWORD', 'ATK 20', 0xf2b84b],
+      ['POTION', 'HP +25', 0xe87979],
+      ['BOOTS', 'SPD +5', 0x77b9d8],
+      ['MARK', 'XP +10%', 0xb48cf2]
+    ];
+    items.forEach(([name, detail, color], index) => {
+      const x = 20 + (index % 2) * ((width - 52) / 2 + 12);
+      const y = 76 + Math.floor(index / 2) * 76;
+      const slot = this.add.graphics();
+      slot.fillStyle(0x112436, 1);
+      slot.fillRoundedRect(x, y, (width - 52) / 2, 60, 12);
+      slot.lineStyle(1, 0x27475c, 1);
+      slot.strokeRoundedRect(x, y, (width - 52) / 2, 60, 12);
+      slot.fillStyle(color, 1);
+      slot.fillCircle(x + 25, y + 30, 13);
+      panel.add(slot);
+      panel.add(this.add.text(x + 46, y + 15, name, {
+        fontSize: '10px',
+        color: '#e3f0f2',
+        fontStyle: 'bold'
+      }));
+      panel.add(this.add.text(x + 46, y + 32, detail, {
+        fontSize: '9px',
+        color: '#7fa8b8'
+      }));
+    });
+
+    panel.setVisible(false);
+    this.uiContainer.add(panel);
+    this.inventoryPanel = panel;
+    this.inventoryPanelWidth = width;
+  }
+
+  toggleInventory() {
+    this.inventoryOpen = !this.inventoryOpen;
+    this.inventoryPanel.setVisible(this.inventoryOpen);
+  }
+
+  awardExperience(animal) {
+    const rewards = { fox: 28, hare: 24, deer: 42, black_grouse: 30, boar: 65 };
+    let gained = rewards[animal.species] || 25;
+    this.playerXp += gained;
+    this.killCount += 1;
+
+    while (this.playerXp >= this.playerXpToNext) {
+      this.playerXp -= this.playerXpToNext;
+      this.playerLevel += 1;
+      this.playerXpToNext = Math.round(this.playerXpToNext * 1.28);
+      this.showLevelUp();
+    }
+
+    this.updateHealthDisplay();
+    this.updateXpDisplay();
+    const rewardText = this.add.text(this.player.x, this.player.y - 54, `+${gained} XP`, {
+      fontSize: '14px',
+      color: '#80e4f3',
+      fontStyle: 'bold',
+      stroke: '#08202c',
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(30);
+    this.tweens.add({
+      targets: rewardText,
+      y: rewardText.y - 34,
+      alpha: 0,
+      duration: 900,
+      onComplete: () => rewardText.destroy()
+    });
+  }
+
+  showLevelUp() {
+    this.levelUpText.setText(`LEVEL ${this.playerLevel}`);
+    this.levelUpText.setPosition(this.scale.width / 2, 146);
+    this.levelUpText.setAlpha(1);
+    this.levelUpText.setScale(0.65);
+    this.tweens.add({
+      targets: this.levelUpText,
+      scale: 1,
+      alpha: 0,
+      y: 120,
+      duration: 1300,
+      ease: 'Cubic.easeOut'
+    });
+    this.tweens.add({
+      targets: this.levelBadge,
+      scale: 1.25,
+      yoyo: true,
+      duration: 180,
+      repeat: 2,
+      ease: 'Sine.easeInOut'
+    });
   }
 
   resizeUi() {
@@ -629,6 +860,18 @@ class MainScene extends Phaser.Scene {
 
     if (this.equipButton) {
       this.equipButton.container.setPosition(width - 118, height - 210);
+    }
+
+    if (this.inventoryButton) {
+      this.inventoryButton.container.setPosition(width - 48, 44);
+    }
+
+    if (this.inventoryPanel) {
+      this.inventoryPanel.setPosition(width - this.inventoryPanelWidth - 14, 76);
+    }
+
+    if (this.levelUpText) {
+      this.levelUpText.setPosition(width / 2, 146);
     }
 
     if (this.uiCamera) {
@@ -706,6 +949,7 @@ class MainScene extends Phaser.Scene {
       animal.dead = true;
       animal.attacking = false;
       animal.sprite.body.enable = false;
+      this.awardExperience(animal);
       this.time.delayedCall(700, () => {
         animal.sprite.setVisible(false);
       });
@@ -740,7 +984,7 @@ class MainScene extends Phaser.Scene {
     this.time.delayedCall(180, () => this.player.clearTint());
 
     if (this.playerHealth <= 0) {
-      this.playerHealth = 100;
+      this.playerHealth = MAX_PLAYER_HEALTH;
       this.updateHealthDisplay();
       this.player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
     }
