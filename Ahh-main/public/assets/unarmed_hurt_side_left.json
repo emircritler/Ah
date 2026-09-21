@@ -1,0 +1,20 @@
+{
+  "key": "unarmed_hurt_side_left",
+  "image": "unarmed_hurt_side_left.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 5,
+  "animations": {
+    "default": {
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "frameRate": 12,
+      "repeat": -1
+    }
+  }
+}
