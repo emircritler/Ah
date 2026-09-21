@@ -77,17 +77,18 @@ class MainScene extends Phaser.Scene {
       return false;
     }
 
-    if (this.anims.exists(animationKey)) {
-      target.setVisible(true);
-      target.setAlpha(1);
-      target.anims.play(animationKey, true);
-      return true;
-    }
+    const resolvedAnimationKey = this.anims.exists(animationKey)
+      ? animationKey
+      : fallbackKey && this.anims.exists(fallbackKey)
+        ? fallbackKey
+        : null;
 
-    if (fallbackKey && this.anims.exists(fallbackKey)) {
+    if (resolvedAnimationKey) {
       target.setVisible(true);
       target.setAlpha(1);
-      target.anims.play(fallbackKey, true);
+      if (target.anims.currentAnim?.key !== resolvedAnimationKey || !target.anims.isPlaying) {
+        target.anims.play(resolvedAnimationKey, true);
+      }
       return true;
     }
 
@@ -211,7 +212,7 @@ class MainScene extends Phaser.Scene {
     this.dummy.setAlpha(0.9);
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
     this.cameras.main.setZoom(1.0);
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -551,7 +552,7 @@ class MainScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.attackEffect && this.player) {
+    if (this.attackEffect?.visible && this.player) {
       this.attackEffect.setPosition(this.player.x, this.player.y);
     }
 
