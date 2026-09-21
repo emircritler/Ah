@@ -9,6 +9,8 @@ const ATTACK_SHEET_W = 512;
 const ATTACK_SHEET_H = 64;
 const ATTACK_FRAME_W = ATTACK_SHEET_W / ATTACK_COLUMNS;
 const ATTACK_FRAME_H = ATTACK_SHEET_H / ATTACK_ROWS;
+const ATTACK_EFFECT_START = 3;
+const ATTACK_EFFECT_END = 5;
 const STANDARD_DISPLAY_W = 64;
 const STANDARD_DISPLAY_H = 64;
 const STANDARD_HITBOX_W = 32;
@@ -271,7 +273,9 @@ class MainScene extends Phaser.Scene {
         ATTACK_COLUMNS * ATTACK_ROWS,
         this.getVisibleFrameCount(textureKey, ATTACK_FRAME_W, ATTACK_FRAME_H)
       );
-      animationDefs.push([textureKey, textureKey, 0, frameCount - 1, 10, 0]);
+      const effectStart = Math.min(ATTACK_EFFECT_START, frameCount - 1);
+      const effectEnd = Math.min(ATTACK_EFFECT_END, frameCount - 1);
+      animationDefs.push([textureKey, textureKey, effectStart, effectEnd, 10, 0]);
     });
 
     animationDefs.forEach(([key, textureKey, start, end, frameRate, repeat]) => {
@@ -551,8 +555,8 @@ class MainScene extends Phaser.Scene {
 
     if (this.isAttacking) {
       this.player.setVelocity(0, 0);
-      const frameIndex = this.player.anims.currentFrame ? this.player.anims.currentFrame.index : 0;
-      if (frameIndex >= 2 && frameIndex <= 4 && !this.attackHitLock) {
+      const frameIndex = this.attackEffect.anims.currentFrame ? this.attackEffect.anims.currentFrame.index : 0;
+      if (frameIndex >= ATTACK_EFFECT_START && frameIndex <= ATTACK_EFFECT_END && !this.attackHitLock) {
         this.checkAttackHit();
       }
       return;
