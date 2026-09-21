@@ -129,6 +129,18 @@ class MainScene extends Phaser.Scene {
       frameHeight: FRAME_H
     });
     this.load.image('forest_tileset', `${ASSET_BASE}assets/forest_tileset.png`);
+    this.load.spritesheet('forest_boats', `${ASSET_BASE}assets/forest_boats.png`, {
+      frameWidth: 32,
+      frameHeight: 32
+    });
+    this.load.spritesheet('forest_chest', `${ASSET_BASE}assets/forest_chest.png`, {
+      frameWidth: 32,
+      frameHeight: 32
+    });
+    this.load.spritesheet('forest_characters', `${ASSET_BASE}assets/forest_characters.png`, {
+      frameWidth: 32,
+      frameHeight: 32
+    });
 
     Object.entries(ANIMAL_DEFS).forEach(([species, definition]) => {
       Object.entries(definition.atlasFiles).forEach(([action, fileName]) => {
@@ -329,6 +341,27 @@ class MainScene extends Phaser.Scene {
     const propsTileset = this.propsMap.addTilesetImage(tilesetKey, tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0, 1);
     this.propsLayer = this.propsMap.createLayer(0, propsTileset, 0, 0);
     this.propsLayer.setDepth(4);
+    this.createWorldDecor();
+  }
+
+  createWorldDecor() {
+    const boats = [
+      [416, 448, 0],
+      [1456, 512, 1],
+      [1216, 1456, 2]
+    ];
+    boats.forEach(([x, y, frame]) => {
+      this.add.sprite(x, y, 'forest_boats', frame).setScale(1.15).setDepth(3);
+    });
+
+    const chests = [
+      [560, 1328, 0],
+      [1120, 832, 1],
+      [1632, 1280, 2]
+    ];
+    chests.forEach(([x, y, frame]) => {
+      this.add.sprite(x, y, 'forest_chest', frame).setScale(1.2).setDepth(6);
+    });
   }
 
   create() {
@@ -336,6 +369,15 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.roundPixels = true;
 
+    const worldBackdrop = this.add.rectangle(
+      WORLD_WIDTH / 2,
+      WORLD_HEIGHT / 2,
+      WORLD_WIDTH,
+      WORLD_HEIGHT,
+      0x4c9368,
+      1
+    );
+    worldBackdrop.setDepth(-1);
     this.createWorldMap();
 
     this.createAnimations();

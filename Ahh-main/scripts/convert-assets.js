@@ -323,6 +323,12 @@ async function main() {
     path.join(RAW_DIR, 'forest', 'Beach Tileset.png'),
     path.join(OUTPUT_DIR, 'forest_tileset.png')
   );
+  for (const fileName of ['Boats.png', 'Characters.png', 'Chest.png']) {
+    await copyIfPresent(
+      path.join(RAW_DIR, 'forest', fileName),
+      path.join(OUTPUT_DIR, `forest_${fileName.toLowerCase()}`)
+    );
+  }
 
   const files = await findAssetFiles();
 
