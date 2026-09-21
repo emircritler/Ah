@@ -19,6 +19,7 @@ class MainScene extends Phaser.Scene {
     this.lastFacing = 'front';
     this.attackHitLock = false;
     this.attackRange = 90;
+    this.attackTimer = null;
   }
 
   preload() {
@@ -226,8 +227,7 @@ class MainScene extends Phaser.Scene {
       );
 
       if (attackAnimation) {
-        this.isAttacking = false;
-        this.playIdleAnimation();
+        this.finishAttack();
       }
     });
 
@@ -293,6 +293,9 @@ class MainScene extends Phaser.Scene {
     canvas.width = frameWidth;
     canvas.height = frameHeight;
     const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) {
+      return frameCount;
+    }
     let lastVisibleFrame = -1;
 
     for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
@@ -333,6 +336,17 @@ class MainScene extends Phaser.Scene {
       (this.player.width - hitboxWidth) / 2,
       (this.player.height - hitboxHeight) / 2
     );
+  }
+
+  finishAttack() {
+    this.isAttacking = false;
+
+    if (this.attackTimer) {
+      this.attackTimer.remove(false);
+      this.attackTimer = null;
+    }
+
+    this.playIdleAnimation();
   }
 
   createMobileControls() {
@@ -437,7 +451,18 @@ class MainScene extends Phaser.Scene {
     const attackDirection = this.lastFacing || 'front';
     const attackKey = `sword_attack_${attackDirection}`;
     const fallbackKey = 'sword_attack_front';
-    this.safePlayAnimation(this.player, attackKey, fallbackKey);
+    const attackStarted = this.safePlayAnimation(this.player, attackKey, fallbackKey);
+
+    if (!attackStarted) {
+      this.finishAttack();
+      return;
+    }
+
+    this.attackTimer = this.time.delayedCall(1200, () => {
+      if (this.isAttacking) {
+        this.finishAttack();
+      }
+    });
   }
 
   checkAttackHit() {
