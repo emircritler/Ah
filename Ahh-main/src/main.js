@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import VirtualJoyStickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin.js';
 
+const ASSET_BASE = import.meta.env.BASE_URL;
+
 const FRAME_W = 64;
 const FRAME_H = 64;
 const ATTACK_COLUMNS = 8;
@@ -42,31 +44,31 @@ class MainScene extends Phaser.Scene {
       console.warn('Asset load error:', file.key || file.src || 'unknown');
     });
 
-    this.load.spritesheet('sword_attack_atlas', '/assets/sword_attack_atlas.png', {
+    this.load.spritesheet('sword_attack_atlas', `${ASSET_BASE}assets/sword_attack_atlas.png`, {
       frameWidth: ATTACK_FRAME_W,
       frameHeight: ATTACK_FRAME_H
     });
-    this.load.spritesheet('sword_idle_atlas', '/assets/sword_idle_atlas.png', {
+    this.load.spritesheet('sword_idle_atlas', `${ASSET_BASE}assets/sword_idle_atlas.png`, {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
-    this.load.spritesheet('sword_walk_atlas', '/assets/sword_walk_atlas.png', {
+    this.load.spritesheet('sword_walk_atlas', `${ASSET_BASE}assets/sword_walk_atlas.png`, {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
-    this.load.spritesheet('sword_run_atlas', '/assets/sword_run_atlas.png', {
+    this.load.spritesheet('sword_run_atlas', `${ASSET_BASE}assets/sword_run_atlas.png`, {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
-    this.load.spritesheet('unarmed_idle_atlas', '/assets/unarmed_idle_atlas.png', {
+    this.load.spritesheet('unarmed_idle_atlas', `${ASSET_BASE}assets/unarmed_idle_atlas.png`, {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
-    this.load.spritesheet('unarmed_walk_atlas', '/assets/unarmed_walk_atlas.png', {
+    this.load.spritesheet('unarmed_walk_atlas', `${ASSET_BASE}assets/unarmed_walk_atlas.png`, {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
-    this.load.spritesheet('unarmed_run_atlas', '/assets/unarmed_run_atlas.png', {
+    this.load.spritesheet('unarmed_run_atlas', `${ASSET_BASE}assets/unarmed_run_atlas.png`, {
       frameWidth: FRAME_W,
       frameHeight: FRAME_H
     });
@@ -86,7 +88,7 @@ class MainScene extends Phaser.Scene {
       foxDirections.forEach(([direction, fileDirection]) => {
         this.load.spritesheet(
           `fox_${action}_${direction}`,
-          `/assets/fox_${action}_${fileDirection}.png`,
+          `${ASSET_BASE}assets/fox_${action}_${fileDirection}.png`,
           { frameWidth: FRAME_W, frameHeight: FRAME_H }
         );
       });
