@@ -26,6 +26,40 @@ const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 2000;
 const PLAYER_SPEED = 150;
 const RUN_SPEED = 240;
+const ANIMAL_DEFS = {
+  fox: {
+    actions: { idle: 4, walk: 6, run: 6, hurt: 4, death: 6 },
+    scale: 1.35,
+    speed: 62
+  },
+  hare: {
+    actions: { idle: 4, walk: 5, run: 6, hurt: 4, death: 6 },
+    scale: 1.15,
+    speed: 82
+  },
+  deer: {
+    actions: { idle: 4, walk: 6, run: 6, hurt: 4, death: 7 },
+    scale: 1.45,
+    speed: 72
+  },
+  black_grouse: {
+    actions: { idle: 4, walk: 6, run: 0, flight: 6, hurt: 4, death: 6 },
+    scale: 1.15,
+    speed: 68
+  },
+  boar: {
+    actions: { idle: 4, walk: 6, run: 5, attack: 5, hurt: 4, death: 6 },
+    scale: 1.35,
+    speed: 64,
+    attackDamage: 8
+  }
+};
+const ANIMAL_DIRECTIONS = {
+  back: 'back',
+  front: 'front',
+  side_left: 'left',
+  side_right: 'right'
+};
 
 class MainScene extends Phaser.Scene {
   constructor() {
@@ -37,6 +71,9 @@ class MainScene extends Phaser.Scene {
     this.attackHitLock = false;
     this.attackRange = 90;
     this.attackTimer = null;
+    this.animals = [];
+    this.playerHealth = 100;
+    this.playerHurtTimer = null;
   }
 
   preload() {
@@ -73,25 +110,33 @@ class MainScene extends Phaser.Scene {
       frameHeight: FRAME_H
     });
 
-    const foxActions = [
-      ['idle', 4],
-      ['walk', 6],
-      ['run', 6]
-    ];
-    const foxDirections = [
-      ['back', 'back'],
-      ['front', 'front'],
-      ['side_left', 'left'],
-      ['side_right', 'right']
-    ];
-    foxActions.forEach(([action]) => {
-      foxDirections.forEach(([direction, fileDirection]) => {
-        this.load.spritesheet(
-          `fox_${action}_${direction}`,
-          `${ASSET_BASE}assets/fox_${action}_${fileDirection}.png`,
-          { frameWidth: FRAME_W, frameHeight: FRAME_H }
-        );
+    Object.entries(ANIMAL_DEFS).forEach(([species, definition]) => {
+      Object.keys(definition.actions).forEach((action) => {
+        if (!definition.actions[action]) {
+          return;
+        }
+
+        Object.entries(ANIMAL_DIRECTIONS).forEach(([direction, fileDirection]) => {
+          const fileName = species === 'boar'
+            ? fileDirection === 'right'
+              ? `boar_${action}_right.png`
+              : `boar_${fileDirection}_${action}.png`
+            : `${species}_${action}_${fileDirection}.png`;
+          this.load.spritesheet(
+            `animal_${species}_${action}_${direction}`,
+            `${ASSET_BASE}assets/${fileName}`,
+            { frameWidth: FRAME_W, frameHeight: FRAME_H }
+          );
+        });
       });
+    });
+
+    Object.entries(ANIMAL_DIRECTIONS).forEach(([direction, fileDirection]) => {
+      this.load.spritesheet(
+        `unarmed_hurt_${direction}`,
+        `${ASSET_BASE}assets/unarmed_hurt_${direction.startsWith('side_') ? direction : fileDirection}.png`,
+        { frameWidth: FRAME_W, frameHeight: FRAME_H }
+      );
     });
   }
 
@@ -139,7 +184,7 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isAttacking) {
+    if (this.isAttacking || this.playerHurtTimer) {
       return;
     }
 
@@ -163,7 +208,7 @@ class MainScene extends Phaser.Scene {
   }
 
   playIdleAnimation() {
-    if (this.isAttacking) {
+    if (this.isAttacking || this.playerHurtTimer) {
       return;
     }
 
@@ -211,21 +256,7 @@ class MainScene extends Phaser.Scene {
     this.player.body.setMaxVelocity(RUN_SPEED, RUN_SPEED);
     this.player.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT));
 
-    this.dummy = this.physics.add.sprite(
-      Phaser.Math.Between(500, WORLD_WIDTH - 500),
-      Phaser.Math.Between(300, WORLD_HEIGHT - 300),
-      'fox_idle_front'
-    );
-    this.dummy.setTexture('fox_idle_front');
-    this.dummy.setScale(1.35);
-    this.dummy.setDepth(9);
-    this.dummy.setImmovable(true);
-    this.dummy.body.setAllowGravity(false);
-    this.dummy.body.moves = false;
-    this.dummy.body.setCollideWorldBounds(true);
-    this.dummy.setTint(0x88cc88);
-    this.safePlayAnimation(this.dummy, 'fox_idle_front', 'fox_idle_front');
-    this.dummy.setAlpha(0.9);
+    this.createAnimals();
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.2, 0.2);
@@ -252,10 +283,16 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.ignore(this.uiContainer);
 
     this.createMobileControls();
+    this.createHealthDisplay();
 
     this.player.on('animationcomplete', (anim) => {
       if (anim.key && anim.key.startsWith('sword_attack_')) {
         this.finishAttack();
+      }
+
+      if (anim.key && anim.key.startsWith('unarmed_hurt_')) {
+        this.playerHurtTimer = null;
+        this.playIdleAnimation();
       }
     });
 
@@ -316,21 +353,153 @@ class MainScene extends Phaser.Scene {
       }
     });
 
-    const foxActions = { idle: 4, walk: 6, run: 6 };
-    Object.entries(foxActions).forEach(([action, columns]) => {
-      ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
-        const key = `fox_${action}_${direction}`;
-        if (!this.textures.exists(key) || this.anims.exists(key)) {
+    Object.entries(ANIMAL_DEFS).forEach(([species, definition]) => {
+      Object.entries(definition.actions).forEach(([action, columns]) => {
+        if (!columns) {
           return;
         }
 
-        this.anims.create({
-          key,
-          frames: this.anims.generateFrameNumbers(key, { start: 0, end: columns - 1 }),
-          frameRate: action === 'run' ? 12 : action === 'walk' ? 10 : 8,
-          repeat: -1
+        Object.keys(ANIMAL_DIRECTIONS).forEach((direction) => {
+          const key = `animal_${species}_${action}_${direction}`;
+          if (!this.textures.exists(key) || this.anims.exists(key)) {
+            return;
+          }
+
+          this.anims.create({
+            key,
+            frames: this.anims.generateFrameNumbers(key, { start: 0, end: columns - 1 }),
+            frameRate: action === 'run' || action === 'flight' ? 12 : action === 'walk' ? 10 : 8,
+            repeat: action === 'hurt' || action === 'death' || action === 'attack' ? 0 : -1
+          });
         });
       });
+    });
+
+    Object.keys(ANIMAL_DIRECTIONS).forEach((direction) => {
+      const key = `unarmed_hurt_${direction}`;
+      if (!this.textures.exists(key) || this.anims.exists(key)) {
+        return;
+      }
+
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(key, { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: 0
+      });
+    });
+  }
+
+  createAnimals() {
+    const spawnPlan = [
+      ['fox', 2],
+      ['hare', 2],
+      ['deer', 2],
+      ['black_grouse', 2],
+      ['boar', 2]
+    ];
+
+    spawnPlan.forEach(([species, count]) => {
+      for (let index = 0; index < count; index += 1) {
+        const definition = ANIMAL_DEFS[species];
+        const sprite = this.physics.add.sprite(
+          Phaser.Math.Between(180, WORLD_WIDTH - 180),
+          Phaser.Math.Between(180, WORLD_HEIGHT - 180),
+          `animal_${species}_idle_front`
+        );
+        const animal = {
+          species,
+          definition,
+          sprite,
+          health: species === 'boar' ? 45 : 25,
+          maxHealth: species === 'boar' ? 45 : 25,
+          direction: 'front',
+          nextDecisionAt: 0,
+          attackCooldownAt: 0,
+          hurtUntil: 0,
+          attacking: false,
+          dead: false
+        };
+
+        sprite.setScale(definition.scale);
+        sprite.setDepth(5);
+        sprite.body.setAllowGravity(false);
+        sprite.body.setCollideWorldBounds(true);
+        sprite.body.setSize(34, 38);
+        sprite.body.setOffset(15, 20);
+        sprite.setData('animal', animal);
+        this.animals.push(animal);
+        this.playAnimalAnimation(animal, 'idle');
+        this.chooseAnimalDirection(animal, 0);
+      }
+    });
+  }
+
+  playAnimalAnimation(animal, action) {
+    const key = `animal_${animal.species}_${action}_${animal.direction}`;
+    const fallback = `animal_${animal.species}_idle_${animal.direction}`;
+    this.safePlayAnimation(animal.sprite, key, fallback);
+  }
+
+  chooseAnimalDirection(animal, time) {
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const speed = animal.definition.speed * Phaser.Math.FloatBetween(0.8, 1.15);
+    animal.sprite.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+    animal.nextDecisionAt = time + Phaser.Math.Between(1400, 3600);
+    animal.direction = this.getDirectionKey(animal.sprite.body.velocity.x, animal.sprite.body.velocity.y);
+  }
+
+  updateAnimalDirection(animal) {
+    const { x, y } = animal.sprite.body.velocity;
+    if (Math.abs(x) > 1 || Math.abs(y) > 1) {
+      animal.direction = this.getDirectionKey(x, y);
+    }
+  }
+
+  updateAnimals(time) {
+    this.animals.forEach((animal) => {
+      if (animal.dead) {
+        return;
+      }
+
+      const sprite = animal.sprite;
+      if (animal.hurtUntil > time) {
+        sprite.setVelocity(0, 0);
+        this.playAnimalAnimation(animal, 'hurt');
+        return;
+      }
+
+      if (animal.attacking) {
+        sprite.setVelocity(0, 0);
+        return;
+      }
+
+      const distanceToPlayer = Phaser.Math.Distance.Between(sprite.x, sprite.y, this.player.x, this.player.y);
+      if (animal.definition.attackDamage && distanceToPlayer < 120 && animal.attackCooldownAt <= time) {
+        animal.attacking = true;
+        animal.attackCooldownAt = time + 1800;
+        this.playAnimalAnimation(animal, 'attack');
+        this.time.delayedCall(380, () => {
+          if (!animal.dead && Phaser.Math.Distance.Between(sprite.x, sprite.y, this.player.x, this.player.y) < 135) {
+            this.takePlayerDamage(animal.definition.attackDamage);
+          }
+        });
+        this.time.delayedCall(800, () => {
+          animal.attacking = false;
+          animal.nextDecisionAt = this.time.now;
+        });
+        return;
+      }
+
+      if (animal.nextDecisionAt <= time || sprite.body.speed < 1) {
+        this.chooseAnimalDirection(animal, time);
+      }
+
+      this.updateAnimalDirection(animal);
+      const action = sprite.body.speed > animal.definition.speed * 1.08 ? 'run' : 'walk';
+      const resolvedAction = ANIMAL_DEFS[animal.species].actions[action] ? action : animal.species === 'black_grouse' && sprite.body.speed > 70 ? 'flight' : 'walk';
+      this.playAnimalAnimation(animal, resolvedAction);
+      sprite.setDepth(5 + sprite.y / WORLD_HEIGHT * 4);
     });
   }
 
@@ -421,6 +590,25 @@ class MainScene extends Phaser.Scene {
     this.equipButton.label.setText(text);
   }
 
+  createHealthDisplay() {
+    this.healthText = this.add.text(24, 24, '', {
+      fontSize: '18px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setScrollFactor(0);
+    this.uiContainer.add(this.healthText);
+    this.cameras.main.ignore(this.healthText);
+    this.updateHealthDisplay();
+  }
+
+  updateHealthDisplay() {
+    if (this.healthText) {
+      this.healthText.setText(`HP ${Math.max(0, this.playerHealth)} / 100`);
+    }
+  }
+
   resizeUi() {
     const width = this.scale.width;
     const height = this.scale.height;
@@ -475,28 +663,80 @@ class MainScene extends Phaser.Scene {
   }
 
   checkAttackHit() {
-    if (this.attackHitLock || !this.dummy) {
+    if (this.attackHitLock || !this.animals.length) {
       return;
     }
 
-    const dx = this.player.x - this.dummy.x;
-    const dy = this.player.y - this.dummy.y;
-    const distance = Math.hypot(dx, dy);
+    const target = this.animals.find((animal) => {
+      if (animal.dead) {
+        return false;
+      }
+      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, animal.sprite.x, animal.sprite.y);
+      return distance <= this.attackRange;
+    });
 
-    if (distance <= this.attackRange) {
+    if (target) {
       this.attackHitLock = true;
-      this.dummy.setTint(0xff6666);
-      this.tweens.add({
-        targets: this.dummy,
-        alpha: 0.7,
-        duration: 70,
-        yoyo: true,
-        repeat: 0,
-        onComplete: () => {
-          this.dummy.clearTint();
-          this.dummy.setAlpha(0.9);
-        }
+      this.damageAnimal(target, 20);
+    }
+  }
+
+  damageAnimal(animal, amount) {
+    if (animal.dead) {
+      return;
+    }
+
+    animal.health -= amount;
+    animal.hurtUntil = this.time.now + 450;
+    animal.sprite.setVelocity(0, 0);
+    animal.sprite.setTint(0xff7777);
+    this.playAnimalAnimation(animal, animal.health <= 0 ? 'death' : 'hurt');
+
+    this.time.delayedCall(120, () => {
+      animal.sprite.clearTint();
+    });
+
+    if (animal.health <= 0) {
+      animal.dead = true;
+      animal.attacking = false;
+      animal.sprite.body.enable = false;
+      this.time.delayedCall(700, () => {
+        animal.sprite.setVisible(false);
       });
+      this.time.delayedCall(6000, () => {
+        animal.health = animal.maxHealth;
+        animal.dead = false;
+        animal.hurtUntil = 0;
+        animal.sprite.setVisible(true);
+        animal.sprite.body.enable = true;
+        animal.sprite.setPosition(
+          Phaser.Math.Between(180, WORLD_WIDTH - 180),
+          Phaser.Math.Between(180, WORLD_HEIGHT - 180)
+        );
+        this.chooseAnimalDirection(animal, this.time.now);
+      });
+    }
+  }
+
+  takePlayerDamage(amount) {
+    if (this.playerHurtTimer || this.isAttacking) {
+      return;
+    }
+
+    this.playerHealth = Math.max(0, this.playerHealth - amount);
+    this.updateHealthDisplay();
+    this.playerHurtTimer = this.time.delayedCall(550, () => {
+      this.playerHurtTimer = null;
+      this.playIdleAnimation();
+    });
+    this.player.setTint(0xff5555);
+    this.safePlayAnimation(this.player, `unarmed_hurt_${this.lastFacing}`, 'unarmed_hurt_front');
+    this.time.delayedCall(180, () => this.player.clearTint());
+
+    if (this.playerHealth <= 0) {
+      this.playerHealth = 100;
+      this.updateHealthDisplay();
+      this.player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
     }
   }
 
@@ -511,6 +751,13 @@ class MainScene extends Phaser.Scene {
 
     if (Phaser.Input.Keyboard.JustDown(this.attackKey)) {
       this.triggerAttack();
+    }
+
+    this.updateAnimals(this.time.now);
+
+    if (this.playerHurtTimer) {
+      this.player.setVelocity(0, 0);
+      return;
     }
 
     let vx = 0;
