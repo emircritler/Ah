@@ -561,11 +561,11 @@ class MainScene extends Phaser.Scene {
 
     this.attackButton = this.createActionButton('ATTACK', width - 118, height - 118, 48, 0x1f8fff, () => {
       this.triggerAttack();
-    });
+    }, 'sword');
 
     this.inventoryButton = this.createActionButton('BAG', width - 48, 44, 26, 0x2a6174, () => {
       this.toggleInventory();
-    });
+    }, 'bag');
 
     this.equipButton = this.createActionButton('EQUIP', width - 118, height - 210, 42, 0x7b4dff, () => {
       this.currentWeapon = this.currentWeapon === 'sword' ? 'unarmed' : 'sword';
@@ -574,31 +574,84 @@ class MainScene extends Phaser.Scene {
       if (!this.isAttacking) {
         this.safePlayAnimation(this.player, idleKey, `${this.currentWeapon === 'sword' ? 'sword' : 'unarmed'}_idle_front`);
       }
-    });
+    }, 'shield');
 
     this.updateEquipButtonLabel();
   }
 
-  createActionButton(labelText, x, y, radius, color, onPress) {
+  createActionButton(labelText, x, y, radius, color, onPress, iconType = labelText.toLowerCase()) {
     const container = this.add.container(x, y);
     const bg = this.add.circle(0, 0, radius, color, 0.85).setStrokeStyle(4, 0xffffff, 0.9);
-    const label = this.add.text(0, 0, labelText, {
-      fontSize: '16px',
+    const icon = this.createButtonIcon(iconType, radius);
+    const label = this.add.text(0, radius * 0.58, labelText === 'ATTACK' ? 'HIT' : labelText === 'EQUIP' ? 'GEAR' : '', {
+      fontSize: radius > 38 ? '9px' : '8px',
       color: '#ffffff',
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 2
     }).setOrigin(0.5);
 
-    container.add([bg, label]);
+    container.add([bg, icon, label]);
     container.setScrollFactor(0);
     bg.setInteractive({ useHandCursor: true });
-    bg.on('pointerdown', onPress);
+    bg.on('pointerover', () => {
+      bg.setStrokeStyle(4, 0xffe6a1, 1);
+      this.tweens.add({ targets: container, scale: 1.06, duration: 120, ease: 'Quad.easeOut' });
+    });
+    bg.on('pointerout', () => {
+      bg.setStrokeStyle(4, 0xffffff, 0.9);
+      this.tweens.add({ targets: container, scale: 1, duration: 120, ease: 'Quad.easeOut' });
+    });
+    bg.on('pointerdown', () => {
+      this.tweens.add({ targets: container, scale: 0.9, duration: 70, yoyo: true, ease: 'Quad.easeOut' });
+      onPress();
+    });
     bg.on('pointerup', () => {});
 
     this.uiContainer.add(container);
     this.cameras.main.ignore(container);
-    return { container, bg, label };
+    return { container, bg, icon, label };
+  }
+
+  createButtonIcon(type, radius) {
+    const icon = this.add.graphics();
+    icon.lineStyle(Math.max(2, radius / 18), 0xffffff, 0.95);
+    icon.fillStyle(0xffffff, 0.95);
+
+    if (type === 'sword') {
+      icon.lineBetween(-radius * 0.25, radius * 0.22, radius * 0.25, -radius * 0.28);
+      icon.lineBetween(-radius * 0.34, radius * 0.1, -radius * 0.1, radius * 0.34);
+      icon.lineBetween(-radius * 0.3, radius * 0.26, -radius * 0.12, radius * 0.42);
+    } else if (type === 'bag') {
+      icon.strokeRoundedRect(-radius * 0.32, -radius * 0.18, radius * 0.64, radius * 0.55, radius * 0.1);
+      icon.arc(0, -radius * 0.16, radius * 0.2, 180, 360, false);
+      icon.lineBetween(-radius * 0.18, radius * 0.04, radius * 0.18, radius * 0.04);
+    } else if (type === 'x') {
+      icon.lineBetween(-radius * 0.24, -radius * 0.24, radius * 0.24, radius * 0.24);
+      icon.lineBetween(radius * 0.24, -radius * 0.24, -radius * 0.24, radius * 0.24);
+    } else if (type === 'potion') {
+      icon.fillRoundedRect(-radius * 0.2, -radius * 0.05, radius * 0.4, radius * 0.42, radius * 0.08);
+      icon.fillRect(-radius * 0.12, -radius * 0.3, radius * 0.24, radius * 0.18);
+    } else if (type === 'boots') {
+      icon.fillRoundedRect(-radius * 0.2, -radius * 0.32, radius * 0.28, radius * 0.58, radius * 0.08);
+      icon.fillRoundedRect(-radius * 0.02, radius * 0.08, radius * 0.42, radius * 0.2, radius * 0.08);
+    } else if (type === 'mark') {
+      icon.fillCircle(0, 0, radius * 0.28);
+      icon.lineBetween(0, -radius * 0.45, 0, radius * 0.45);
+      icon.lineBetween(-radius * 0.45, 0, radius * 0.45, 0);
+    } else {
+      icon.beginPath();
+      icon.moveTo(0, -radius * 0.38);
+      icon.lineTo(radius * 0.3, -radius * 0.18);
+      icon.lineTo(radius * 0.24, radius * 0.22);
+      icon.lineTo(0, radius * 0.38);
+      icon.lineTo(-radius * 0.24, radius * 0.22);
+      icon.lineTo(-radius * 0.3, -radius * 0.18);
+      icon.closePath();
+      icon.strokePath();
+    }
+
+    return icon;
   }
 
   updateEquipButtonLabel() {
@@ -732,6 +785,13 @@ class MainScene extends Phaser.Scene {
   createInventoryPanel() {
     const width = Math.min(320, this.scale.width - 28);
     const height = 276;
+    const backdrop = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x020711, 0.58).setOrigin(0);
+    backdrop.setInteractive();
+    backdrop.on('pointerdown', () => this.toggleInventory());
+    backdrop.setVisible(false);
+    this.uiContainer.add(backdrop);
+    this.inventoryBackdrop = backdrop;
+
     const panel = this.add.container(this.scale.width - width - 14, 76);
     const background = this.add.graphics();
     background.fillStyle(0x091522, 0.98);
@@ -754,12 +814,12 @@ class MainScene extends Phaser.Scene {
     panel.add(subtitle);
 
     const items = [
-      ['SWORD', 'ATK 20', 0xf2b84b],
-      ['POTION', 'HP +25', 0xe87979],
-      ['BOOTS', 'SPD +5', 0x77b9d8],
-      ['MARK', 'XP +10%', 0xb48cf2]
+      ['SWORD', 'ATK 20', 0xf2b84b, 'sword'],
+      ['POTION', 'HP +25', 0xe87979, 'potion'],
+      ['BOOTS', 'SPD +5', 0x77b9d8, 'boots'],
+      ['MARK', 'XP +10%', 0xb48cf2, 'mark']
     ];
-    items.forEach(([name, detail, color], index) => {
+    items.forEach(([name, detail, color, iconType], index) => {
       const x = 20 + (index % 2) * ((width - 52) / 2 + 12);
       const y = 76 + Math.floor(index / 2) * 76;
       const slot = this.add.graphics();
@@ -770,6 +830,9 @@ class MainScene extends Phaser.Scene {
       slot.fillStyle(color, 1);
       slot.fillCircle(x + 25, y + 30, 13);
       panel.add(slot);
+      const itemIcon = this.createButtonIcon(iconType, 13);
+      itemIcon.setPosition(x + 25, y + 30);
+      panel.add(itemIcon);
       panel.add(this.add.text(x + 46, y + 15, name, {
         fontSize: '10px',
         color: '#e3f0f2',
@@ -785,11 +848,17 @@ class MainScene extends Phaser.Scene {
     this.uiContainer.add(panel);
     this.inventoryPanel = panel;
     this.inventoryPanelWidth = width;
+    this.inventoryCloseButton = this.createActionButton('', this.scale.width - 44, 98, 17, 0x18364a, () => {
+      this.toggleInventory();
+    }, 'x');
+    this.inventoryCloseButton.container.setVisible(false);
   }
 
   toggleInventory() {
     this.inventoryOpen = !this.inventoryOpen;
+    this.inventoryBackdrop.setVisible(this.inventoryOpen);
     this.inventoryPanel.setVisible(this.inventoryOpen);
+    this.inventoryCloseButton.container.setVisible(this.inventoryOpen);
   }
 
   awardExperience(animal) {
@@ -807,6 +876,14 @@ class MainScene extends Phaser.Scene {
 
     this.updateHealthDisplay();
     this.updateXpDisplay();
+    this.tweens.add({
+      targets: this.xpBar,
+      alpha: 0.45,
+      duration: 120,
+      yoyo: true,
+      repeat: 3,
+      ease: 'Sine.easeInOut'
+    });
     const rewardText = this.add.text(this.player.x, this.player.y - 54, `+${gained} XP`, {
       fontSize: '14px',
       color: '#80e4f3',
@@ -870,6 +947,14 @@ class MainScene extends Phaser.Scene {
       this.inventoryPanel.setPosition(width - this.inventoryPanelWidth - 14, 76);
     }
 
+    if (this.inventoryBackdrop) {
+      this.inventoryBackdrop.setSize(width, height);
+    }
+
+    if (this.inventoryCloseButton) {
+      this.inventoryCloseButton.container.setPosition(width - 44, 98);
+    }
+
     if (this.levelUpText) {
       this.levelUpText.setPosition(width / 2, 146);
     }
@@ -890,6 +975,7 @@ class MainScene extends Phaser.Scene {
 
     this.isAttacking = true;
     this.attackHitLock = false;
+    this.pulseActionButton(this.attackButton);
     this.player.setVisible(true);
     this.player.setAlpha(1);
     this.player.setOrigin(0.5, 0.5);
@@ -940,6 +1026,21 @@ class MainScene extends Phaser.Scene {
     animal.sprite.setVelocity(0, 0);
     animal.sprite.setTint(0xff7777);
     this.playAnimalAnimation(animal, animal.health <= 0 ? 'death' : 'hurt');
+    this.cameras.main.shake(90, 0.0025);
+    const damageText = this.add.text(animal.sprite.x, animal.sprite.y - 42, `-${amount}`, {
+      fontSize: '15px',
+      color: '#ff9b8e',
+      fontStyle: 'bold',
+      stroke: '#34141a',
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(30);
+    this.tweens.add({
+      targets: damageText,
+      y: damageText.y - 28,
+      alpha: 0,
+      duration: 620,
+      onComplete: () => damageText.destroy()
+    });
 
     this.time.delayedCall(120, () => {
       animal.sprite.clearTint();
@@ -966,6 +1067,27 @@ class MainScene extends Phaser.Scene {
         this.chooseAnimalDirection(animal, this.time.now);
       });
     }
+  }
+
+  pulseActionButton(button) {
+    if (!button?.container) {
+      return;
+    }
+
+    this.tweens.add({
+      targets: button.container,
+      scale: 1.16,
+      duration: 110,
+      yoyo: true,
+      ease: 'Quad.easeOut'
+    });
+    this.tweens.add({
+      targets: button.bg,
+      alpha: 0.55,
+      duration: 90,
+      yoyo: true,
+      repeat: 2
+    });
   }
 
   takePlayerDamage(amount) {
