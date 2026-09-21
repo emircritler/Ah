@@ -4,14 +4,15 @@ import VirtualJoyStickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 const FRAME_W = 64;
 const FRAME_H = 64;
 const ATTACK_COLUMNS = 8;
-const ATTACK_ROWS = 1;
-const ATTACK_SHEET_W = 512;
-const ATTACK_SHEET_H = 64;
-const ATTACK_FRAME_W = ATTACK_SHEET_W / ATTACK_COLUMNS;
-const ATTACK_FRAME_H = ATTACK_SHEET_H / ATTACK_ROWS;
-const ATTACK_EFFECT_START = 3;
-const ATTACK_EFFECT_END = 5;
-const ATTACK_EFFECT_FRAME_COUNT = ATTACK_EFFECT_END - ATTACK_EFFECT_START + 1;
+const ATTACK_ROWS = 4;
+const ATTACK_FRAME_W = FRAME_W;
+const ATTACK_FRAME_H = FRAME_H;
+const ATTACK_ROW_BY_DIRECTION = {
+  front: 0,
+  side_left: 1,
+  side_right: 2,
+  back: 3
+};
 const STANDARD_DISPLAY_W = 64;
 const STANDARD_DISPLAY_H = 64;
 const STANDARD_HITBOX_W = 32;
@@ -46,13 +47,6 @@ class MainScene extends Phaser.Scene {
       });
     });
 
-    const attackSpriteSheets = [
-      ['sword_attack_back', '/assets/sword_attack_back.png'],
-      ['sword_attack_front', '/assets/sword_attack_front.png'],
-      ['sword_attack_side_left', '/assets/sword_attack_side_left.png'],
-      ['sword_attack_side_right', '/assets/sword_attack_side_right.png']
-    ];
-
     this.load.on('loaderror', (file) => {
       console.warn('Asset load error:', file.key || file.src || 'unknown');
     });
@@ -64,11 +58,9 @@ class MainScene extends Phaser.Scene {
       });
     });
 
-    attackSpriteSheets.forEach(([key, path]) => {
-      this.load.spritesheet(key, path, {
-        frameWidth: ATTACK_FRAME_W,
-        frameHeight: ATTACK_FRAME_H
-      });
+    this.load.spritesheet('sword_attack_atlas', '/assets/sword_attack_atlas.png', {
+      frameWidth: ATTACK_FRAME_W,
+      frameHeight: ATTACK_FRAME_H
     });
   }
 
@@ -173,7 +165,6 @@ class MainScene extends Phaser.Scene {
 
     grassPatch.setDepth(1);
 
-    this.createAttackEffectTextures();
     this.createAnimations();
 
     this.lastFacing = 'front';
@@ -188,12 +179,6 @@ class MainScene extends Phaser.Scene {
     this.player.setAlpha(1);
     this.player.body.setMaxVelocity(RUN_SPEED, RUN_SPEED);
     this.player.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT));
-
-    this.attackEffect = this.add.sprite(this.player.x, this.player.y, 'sword_swoosh_front');
-    this.attackEffect.setOrigin(0.5, 0.5);
-    this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
-    this.attackEffect.setDepth(11);
-    this.attackEffect.setVisible(false);
 
     this.dummy = this.physics.add.sprite(
       Phaser.Math.Between(500, WORLD_WIDTH - 500),
@@ -238,7 +223,7 @@ class MainScene extends Phaser.Scene {
     this.createMobileControls();
 
     this.player.on('animationcomplete', (anim) => {
-      if (anim.key && anim.key.startsWith('sword_attack_body_')) {
+      if (anim.key && anim.key.startsWith('sword_attack_')) {
         this.finishAttack();
       }
     });
@@ -268,21 +253,15 @@ class MainScene extends Phaser.Scene {
     });
 
     ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
-      const textureKey = `sword_attack_body_${direction}`;
-      if (!this.textures.exists(textureKey)) {
+      const row = ATTACK_ROW_BY_DIRECTION[direction];
+      const textureKey = 'sword_attack_atlas';
+      const key = `sword_attack_${direction}`;
+      if (!this.textures.exists(textureKey) || row === undefined) {
         return;
       }
 
-      animationDefs.push([textureKey, textureKey, 0, ATTACK_COLUMNS * ATTACK_ROWS - 1, 10, 0]);
-    });
-
-    ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
-      const textureKey = `sword_swoosh_${direction}`;
-      if (!this.textures.exists(textureKey)) {
-        return;
-      }
-
-      animationDefs.push([textureKey, textureKey, 0, ATTACK_EFFECT_FRAME_COUNT - 1, 10, 0]);
+      const start = row * ATTACK_COLUMNS;
+      animationDefs.push([key, textureKey, start, start + ATTACK_COLUMNS - 1, 10, 0]);
     });
 
     animationDefs.forEach(([key, textureKey, start, end, frameRate, repeat]) => {
@@ -301,126 +280,6 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  createAttackEffectTextures() {
-    ['back', 'front', 'side_left', 'side_right'].forEach((direction) => {
-      const sourceTexture = this.textures.get(`sword_attack_${direction}`);
-      if (!sourceTexture || typeof document === 'undefined') {
-        return;
-      }
-
-      const bodyCanvas = document.createElement('canvas');
-      bodyCanvas.width = ATTACK_FRAME_W * ATTACK_COLUMNS;
-      bodyCanvas.height = ATTACK_FRAME_H * ATTACK_ROWS;
-      const bodyContext = bodyCanvas.getContext('2d', { willReadFrequently: true });
-      const effectCanvas = document.createElement('canvas');
-      effectCanvas.width = ATTACK_FRAME_W * ATTACK_EFFECT_FRAME_COUNT;
-      effectCanvas.height = ATTACK_FRAME_H;
-      const effectContext = effectCanvas.getContext('2d', { willReadFrequently: true });
-      if (!bodyContext || !effectContext) {
-        return;
-      }
-
-      const sourceImage = sourceTexture.getSourceImage();
-      const idleTexture = this.textures.get(`sword_idle_${direction}`)
-        || this.textures.get('sword_idle_front');
-      const idleImage = idleTexture ? idleTexture.getSourceImage() : null;
-      const idleFrameCount = idleImage
-        ? Math.max(1, Math.floor(idleImage.width / FRAME_W))
-        : 1;
-      const frameCanvas = document.createElement('canvas');
-      frameCanvas.width = ATTACK_FRAME_W;
-      frameCanvas.height = ATTACK_FRAME_H;
-      const frameContext = frameCanvas.getContext('2d', { willReadFrequently: true });
-      if (!frameContext) {
-        return;
-      }
-
-      const isSwooshPixel = (data, pixelIndex) => {
-        const red = data[pixelIndex];
-        const green = data[pixelIndex + 1];
-        const blue = data[pixelIndex + 2];
-        const brightness = red + green + blue;
-        const colorRange = Math.max(red, green, blue) - Math.min(red, green, blue);
-        return data[pixelIndex + 3] > 0 && brightness > 390 && colorRange < 90;
-      };
-
-      for (let frameIndex = 0; frameIndex < ATTACK_COLUMNS * ATTACK_ROWS; frameIndex += 1) {
-        frameContext.clearRect(0, 0, ATTACK_FRAME_W, ATTACK_FRAME_H);
-        frameContext.drawImage(
-          sourceImage,
-          frameIndex * ATTACK_FRAME_W,
-          0,
-          ATTACK_FRAME_W,
-          ATTACK_FRAME_H,
-          0,
-          0,
-          ATTACK_FRAME_W,
-          ATTACK_FRAME_H
-        );
-
-        const frameImageData = frameContext.getImageData(0, 0, ATTACK_FRAME_W, ATTACK_FRAME_H);
-        let bodyPixelCount = 0;
-        for (let pixelIndex = 0; pixelIndex < frameImageData.data.length; pixelIndex += 4) {
-          if (isSwooshPixel(frameImageData.data, pixelIndex)) {
-            frameImageData.data[pixelIndex + 3] = 0;
-          } else if (frameImageData.data[pixelIndex + 3] > 0) {
-            bodyPixelCount += 1;
-          }
-        }
-
-        frameContext.putImageData(frameImageData, 0, 0);
-        if (bodyPixelCount < 12 && idleImage) {
-          frameContext.clearRect(0, 0, ATTACK_FRAME_W, ATTACK_FRAME_H);
-          frameContext.drawImage(
-            idleImage,
-            (frameIndex % idleFrameCount) * FRAME_W,
-            0,
-            FRAME_W,
-            FRAME_H,
-            0,
-            0,
-            ATTACK_FRAME_W,
-            ATTACK_FRAME_H
-          );
-        }
-
-        bodyContext.drawImage(frameCanvas, frameIndex * ATTACK_FRAME_W, 0);
-      }
-
-      for (let frameIndex = 0; frameIndex < ATTACK_EFFECT_FRAME_COUNT; frameIndex += 1) {
-        effectContext.drawImage(
-          sourceImage,
-          (ATTACK_EFFECT_START + frameIndex) * ATTACK_FRAME_W,
-          0,
-          ATTACK_FRAME_W,
-          ATTACK_FRAME_H,
-          frameIndex * ATTACK_FRAME_W,
-          0,
-          ATTACK_FRAME_W,
-          ATTACK_FRAME_H
-        );
-      }
-
-      const effectImageData = effectContext.getImageData(0, 0, effectCanvas.width, effectCanvas.height);
-
-      for (let pixelIndex = 0; pixelIndex < effectImageData.data.length; pixelIndex += 4) {
-        if (!isSwooshPixel(effectImageData.data, pixelIndex)) {
-          effectImageData.data[pixelIndex + 3] = 0;
-        }
-      }
-
-      effectContext.putImageData(effectImageData, 0, 0);
-      this.textures.addSpriteSheet(`sword_attack_body_${direction}`, bodyCanvas, {
-        frameWidth: ATTACK_FRAME_W,
-        frameHeight: ATTACK_FRAME_H
-      });
-      this.textures.addSpriteSheet(`sword_swoosh_${direction}`, effectCanvas, {
-        frameWidth: ATTACK_FRAME_W,
-        frameHeight: ATTACK_FRAME_H
-      });
-    });
-  }
-
   setPlayerHitbox() {
     if (!this.player?.body) {
       return;
@@ -435,12 +294,6 @@ class MainScene extends Phaser.Scene {
 
   finishAttack() {
     this.isAttacking = false;
-
-    if (this.attackEffect) {
-      this.attackEffect.anims.stop();
-      this.attackEffect.setVisible(false);
-      this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
-    }
 
     if (this.attackTimer) {
       this.attackTimer.remove(false);
@@ -551,18 +404,11 @@ class MainScene extends Phaser.Scene {
     this.player.setOrigin(0.5, 0.5);
     this.setPlayerHitbox();
     const attackDirection = this.lastFacing || 'front';
-    const bodyAttackKey = `sword_attack_body_${attackDirection}`;
-    const bodyFallbackKey = 'sword_attack_body_front';
-    const attackKey = `sword_swoosh_${attackDirection}`;
-    const fallbackKey = 'sword_swoosh_front';
-    const bodyAttackStarted = this.safePlayAnimation(this.player, bodyAttackKey, bodyFallbackKey);
-    this.attackEffect.setTexture(attackKey);
-    this.attackEffect.setOrigin(0.5, 0.5);
-    this.attackEffect.setDisplaySize(STANDARD_DISPLAY_W, STANDARD_DISPLAY_H);
-    this.attackEffect.setPosition(this.player.x, this.player.y);
-    const attackStarted = this.safePlayAnimation(this.attackEffect, attackKey, fallbackKey);
+    const attackKey = `sword_attack_${attackDirection}`;
+    const fallbackKey = 'sword_attack_front';
+    const attackStarted = this.safePlayAnimation(this.player, attackKey, fallbackKey);
 
-    if (!bodyAttackStarted || !attackStarted) {
+    if (!attackStarted) {
       this.finishAttack();
       return;
     }
@@ -601,10 +447,6 @@ class MainScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.attackEffect?.visible && this.player) {
-      this.attackEffect.setPosition(this.player.x, this.player.y);
-    }
-
     const left = this.cursors.left.isDown || this.wasd.left.isDown;
     const right = this.cursors.right.isDown || this.wasd.right.isDown;
     const up = this.cursors.up.isDown || this.wasd.up.isDown;
@@ -640,8 +482,8 @@ class MainScene extends Phaser.Scene {
 
     if (this.isAttacking) {
       this.player.setVelocity(0, 0);
-      const frameIndex = this.attackEffect.anims.currentFrame ? this.attackEffect.anims.currentFrame.index : 0;
-      if (frameIndex >= 1 && frameIndex <= 2 && !this.attackHitLock) {
+      const frameIndex = this.player.anims.currentFrame ? this.player.anims.currentFrame.index % ATTACK_COLUMNS : 0;
+      if (frameIndex >= 3 && frameIndex <= 5 && !this.attackHitLock) {
         this.checkAttackHit();
       }
       return;
